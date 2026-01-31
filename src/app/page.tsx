@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import HomeLookup from "../components/HomeLookup";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
