@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: raffle_db
+    environment:
+      POSTGRES_USER: raffle
+      POSTGRES_PASSWORD: rafflepass
+      POSTGRES_DB: raffledb
+    ports:
+      - "5432:5432"
+    volumes:
+      - raffle_pgdata:/var/lib/postgresql/data
+
+volumes:
+  raffle_pgdata:

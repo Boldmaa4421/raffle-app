@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Raffle {
+  id          String  @id @default(cuid())
+  title       String?
+  ticketPrice Int
+
+  imageUrl     String? // ✅ зураг URL
+  totalTickets Int? // ✅ нийт эрх (2300 гэх мэт)
+  payBankLabel String? // ✅ MN12000500 гэх мэт
+  payAccount   String? // ✅ дансны дугаар
+  fbUrl        String? // ✅ дэлгэрэнгүй линк (optional)
+
+  createdAt DateTime @default(now())
+
+  purchases Purchase[]
+  tickets   Ticket[]
+  winner    Winner?
+  counter   RaffleCounter?
+}
+
+model Winner {
+  id        String   @id @default(cuid())
+  raffleId  String   @unique
+  ticketId  String   @unique
+  createdAt DateTime @default(now())
+
+  // ✅ Public-д харагдах
+  displayName     String? // хуучин winnerName
+  bio             String? // prizeText + notes
+  imageUrl        String? // claimPhotoUrl
+  facebookLiveUrl String? // fbLiveUrl
+  publishedAt     DateTime?
+
+  // ✅ Admin-only (хүсвэл)
+  phone      String? // хуучин winnerPhone (public-д битгий харуулна)
+  sourceText String? // хуучин sourceText
+
+  raffle Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+//////////////////////////////////////
+// Purchase
+//////////////////////////////////////
+model Purchase {
+  id       String @id @default(cuid())
+  raffleId String
+  raffle   Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+
+  phoneRaw  String
+  phoneE164 String
+  qty       Int
+  amount    Int
+  createdAt DateTime @default(now())
+
+  uniqueKey String @unique
+
+  tickets Ticket[]
+
+   // ✅ SMS tracking
+  smsSentAt DateTime?
+  smsStatus String?   // "sent" | "failed"
+  smsError  String?
+}
+
+//////////////////////////////////////
+// Ticket
+//////////////////////////////////////
+model Ticket {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  raffleId String
+  raffle   Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  code String @unique
+
+  winner Winner?
+
+  @@index([raffleId])
+  @@index([purchaseId])
+}
+
+//////////////////////////////////////
+// RaffleCounter
+//////////////////////////////////////
+model RaffleCounter {
+  raffleId String @id
+  raffle   Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  nextSeq  Int    @default(1)
+}
