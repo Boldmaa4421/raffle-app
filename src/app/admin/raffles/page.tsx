@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import RafflesClient from "./RafflesClient";
-
 export const dynamic = "force-dynamic";
+
+
+
 
 export default async function AdminRafflesPage() {
   const raffles = await prisma.raffle.findMany({
