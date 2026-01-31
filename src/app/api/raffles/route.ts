@@ -25,7 +25,8 @@ export async function POST(req: Request) {
     return new Response("drawAt буруу форматтай", { status: 400 });
 
   const raffle = await prisma.raffle.create({
-    data: { title, ticketPrice, drawAt },
+   data: { title, ticketPrice },
+
   });
 
   return NextResponse.json(raffle);
