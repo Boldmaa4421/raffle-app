@@ -1,7 +1,9 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import RafflesClient from "./RafflesClient";
-export const dynamic = "force-dynamic";
+
 
 
 
