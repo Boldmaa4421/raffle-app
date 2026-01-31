@@ -85,7 +85,7 @@ export async function POST(req: Request) {
 
       const tickets = await tx.ticket.findMany({
         where: { purchaseId: purchase.id },
-        orderBy: { seq: "asc" },
+        orderBy: { code: "asc" },
       });
 
       return { raffle, purchase, tickets };
