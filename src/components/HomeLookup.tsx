@@ -1,6 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
+
+
+
+useEffect(() => {
+  if (!open) return;
+  const prev = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+  return () => {
+    document.body.style.overflow = prev;
+  };
+}, [open]);
 
 type LookupPurchase = {
   id: string;
@@ -89,17 +101,17 @@ export default function HomeLookup() {
 
       {/* Popup */}
       {open && (
-        <div
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-4xl max-h-[80vh] overflow-auto
-  rounded-2xl border border-white/10 bg-black/55
-  backdrop-blur-xl shadow-2xl p-3 sm:p-4 text-white"
+  <div
+    onClick={() => setOpen(false)}
+    className="fixed inset-0 z-[9999] isolate overflow-y-auto bg-black/70 p-4"
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="relative z-[10000] mx-auto w-full max-w-4xl max-h-[85vh] overflow-auto
+        rounded-2xl border border-white/10 bg-black/55
+        backdrop-blur-xl shadow-2xl p-3 sm:p-4 text-white"
+    >
 
-          >
             <div className="flex items-center justify-between gap-3">
               <div className="font-extrabold text-lg">Үр дүн</div>
               <button
