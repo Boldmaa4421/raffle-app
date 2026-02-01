@@ -152,7 +152,9 @@ export async function POST(req: Request) {
     update: {},
   });
 
-  const prefix = raffleId.slice(0, 4).toUpperCase();
+ // ✅ raffle бүр дээр давтагдахгүй prefix (6 тэмдэг)
+const prefix = raffleId.slice(-6).toUpperCase();
+
 
   const pad6 = (n: number) => String(n).padStart(6, "0");
 

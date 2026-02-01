@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 
 function csvEscape(v: any) {
   const s = String(v ?? "");
-  // Excel-safe: wrap in quotes if contains comma/quote/newline
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
@@ -10,7 +9,6 @@ function csvEscape(v: any) {
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id: raffleId } = await ctx.params;
 
-  // tickets + purchase холбоотой мэдээлэл
   const tickets = await prisma.ticket.findMany({
     where: { raffleId },
     orderBy: { code: "asc" },
@@ -29,7 +27,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     },
   });
 
-  // ✅ CSV header
   const header = [
     "code",
     "phoneE164",
@@ -43,9 +40,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const lines = [header.join(",")];
 
   for (const t of tickets) {
-    const purchasedAt = t.purchase?.createdAt
-      ? new Date(t.purchase.createdAt).toISOString()
-      : "";
+    const purchasedAt = t.purchase?.createdAt ? new Date(t.purchase.createdAt).toISOString() : "";
     const ticketCreatedAt = t.createdAt ? new Date(t.createdAt).toISOString() : "";
 
     lines.push(
@@ -61,15 +56,19 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     );
   }
 
-  // ✅ Excel дээр Монгол үсэг эвдрэхгүй байлгах BOM
+  // ✅ BOM + UTF-8
   const bom = "\uFEFF";
   const csv = bom + lines.join("\n");
 
+  // filename ASCII-safe + RFC5987
+  const fname = `raffle-${raffleId}-codes.csv`;
+  const fnameStar = `UTF-8''${encodeURIComponent(fname)}`;
+
   return new Response(csv, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="raffle-${raffleId}-codes.csv"`,
-      "Cache-Control": "no-store",
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="${fname}"; filename*=${fnameStar}`,
+      "cache-control": "no-store",
     },
   });
 }

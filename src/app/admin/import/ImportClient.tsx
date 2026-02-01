@@ -122,11 +122,7 @@ export default function ImportClient() {
       const res = await fetch("/api/admin/import", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    raffleId,
-    sourceFile: file.name,
-    rows,
-  }),
+  body: JSON.stringify({ raffleId, sourceFile: file.name, rows }),
 });
 
 

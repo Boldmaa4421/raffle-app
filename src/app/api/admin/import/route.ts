@@ -8,6 +8,9 @@ import { normalizePhoneE164 } from "@/lib/phone";
 import crypto from "crypto";
 import * as XLSX from "xlsx";
 
+export async function GET() {
+  return NextResponse.json({ ok: true, msg: "api/admin/import alive" });
+}
 type Body = {
   raffleId: string;
   sourceFile?: string;
@@ -323,7 +326,7 @@ export async function POST(req: Request) {
         });
 
         let nextSeq = counter.nextSeq;
-        const prefix = raffleId.slice(0, 4).toUpperCase();
+        const prefix = raffleId.slice(-6).toUpperCase();
 
         let insertedPurchases = 0;
         let insertedTickets = 0;
