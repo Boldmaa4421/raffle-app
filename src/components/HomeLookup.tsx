@@ -34,28 +34,18 @@ export default function HomeLookup() {
   const [err, setErr] = useState<string | null>(null);
   const [data, setData] = useState<LookupResponse | null>(null);
 
-  // ✅ Portal хийхэд SSR mismatch үүсгэхгүй
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const canSearch = useMemo(() => phone.trim().length >= 6, [phone]);
 
-  // ✅ Popup нээлттэй үед арын scroll бүрэн түгжинэ
+  // ✅ Popup нээлттэй үед арын scroll-ыг бүрэн түгжинэ
   useEffect(() => {
     if (!open) return;
-
-    const prevOverflow = document.body.style.overflow;
-    const prevPosition = document.body.style.position;
-    const prevWidth = document.body.style.width;
-
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    document.body.style.position = "relative";
-    document.body.style.width = "100%";
-
     return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.position = prevPosition;
-      document.body.style.width = prevWidth;
+      document.body.style.overflow = prev;
     };
   }, [open]);
 
@@ -91,16 +81,13 @@ export default function HomeLookup() {
           <div
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-[2147483647] bg-black/70"
-            // iOS/Messenger дээр fixed тогтвортой байлгах
-            style={{ height: "100dvh" }}
           >
-            {/* Overlay scroll */}
-            <div className="h-[100dvh] w-full overflow-y-auto p-4">
-              {/* Center */}
-              <div className="min-h-[calc(100dvh-2rem)] flex items-center justify-center">
+            {/* overlay scroll */}
+            <div className="h-screen w-full overflow-y-auto p-4">
+              <div className="min-h-[calc(100vh-2rem)] flex items-center justify-center">
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-4xl max-h-[88dvh] overflow-auto
+                  className="w-full max-w-4xl max-h-[88vh] overflow-auto
                     rounded-2xl border border-white/10 bg-black/55
                     backdrop-blur-xl shadow-2xl p-3 sm:p-4 text-white"
                 >
