@@ -23,6 +23,12 @@ function toInt(raw: any) {
 function pad6(n: number) {
   return String(n).padStart(6, "0");
 }
+function makePrefix(raffleId: string) {
+  // raffleId-аас зөвхөн үсэг/тоо авч 8 тэмдэгтээр prefix болгоно
+  const clean = raffleId.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  return clean.slice(0, 8) || "RAFFLE";
+}
+
 
 function parseDate(raw: any): Date | null {
   if (!raw) return null;
@@ -303,7 +309,8 @@ export async function POST(req: Request) {
         });
 
         let nextSeq = counter.nextSeq;
-        const prefix = raffleId.slice(0, 4).toUpperCase();
+        const prefix = makePrefix(raffleId); // ✅ илүү unique
+
 
         let insertedPurchases = 0;
         let insertedTickets = 0;
