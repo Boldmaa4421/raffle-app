@@ -109,7 +109,7 @@ const sortedRaffles = [...raffles].sort((a, b) => {
             className="rounded-2xl border border-white/10 bg-black/45 backdrop-blur-xl shadow-2xl p-4 sm:p-6"
           >
             <div className="text-amber-200/90 font-extrabold text-base sm:text-lg">
-              Код шалгах
+              Сугалааны код шалгах
             </div>
             <div className="mt-2 text-xs sm:text-sm text-white/75">
               Утасны дугаараа оруулна уу

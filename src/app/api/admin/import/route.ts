@@ -1,6 +1,3 @@
-export const runtime = "nodejs";
-
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendPurchaseSms } from "@/lib/sendPurchaseSms";
@@ -8,15 +5,14 @@ import { normalizePhoneE164 } from "@/lib/phone";
 import crypto from "crypto";
 import * as XLSX from "xlsx";
 
-export async function GET() {
-  return NextResponse.json({ ok: true, msg: "api/admin/import alive" });
-}
 type Body = {
   raffleId: string;
-  sourceFile?: string;
+  sourceFile?: string; // зөвхөн report-д харуулах гэж үлдээнэ
   rows: Array<{ purchasedAt?: any; amount?: any; phone?: any }>;
 };
 
+// 🔧 хүсвэл энд тогтмол шүүлт хийж болно
+const MIN_AMOUNT = 0; // ж: 30000 болгох бол 30000 гэж тавь
 const MAX_QTY = 500;
 
 function toInt(raw: any) {
@@ -30,6 +26,7 @@ function pad6(n: number) {
 
 function parseDate(raw: any): Date | null {
   if (!raw) return null;
+
   if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
 
   // Excel serial
@@ -78,6 +75,12 @@ function normalizePhoneCell(raw: any) {
     .trim();
 }
 
+/**
+ * Өршөөх phone parse:
+ * - MN 8 digit бол normalizePhoneE164 ашиглана
+ * - Intl 9..15 digit -> +xxxxxxxx
+ * - 00... эхэлбэл + болгож авна
+ */
 function parsePhone(raw: any): {
   primary: string | null;
   allE164: string[];
@@ -154,7 +157,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as Body;
 
     const raffleId = (body.raffleId || "").trim();
-    const sourceFile = (body.sourceFile || "excel").trim();
+    const sourceFile = (body.sourceFile || "excel").trim(); // зөвхөн report-д
     const rows = Array.isArray(body.rows) ? body.rows : [];
 
     if (!raffleId) return NextResponse.json({ error: "raffleId шаардлагатай" }, { status: 400 });
@@ -168,11 +171,8 @@ export async function POST(req: Request) {
 
     const ticketPrice = raffle.ticketPrice;
 
-    // ✅ хамгийн чухал: MIN_AMOUNT нь тухайн raffle-ийн ticketPrice
-    const MIN_AMOUNT = ticketPrice;
-
     type Group = {
-      startRow: number;
+      startRow: number; // excel row index (2-based)
       purchasedAt: Date;
       amount: number;
       phoneRaw: string;
@@ -187,7 +187,7 @@ export async function POST(req: Request) {
     let current: Group | null = null;
 
     for (let i = 0; i < rows.length; i++) {
-      const excelRow = i + 2; // header:1 хэрэглэж байгаа тул data row=2-оос эхэлдэг
+      const excelRow = i + 2;
       const raw = rows[i];
 
       const hasSomething =
@@ -219,30 +219,17 @@ export async function POST(req: Request) {
           current = null;
           continue;
         }
-
-        // ✅ тухайн raffle-ийн ticketPrice-аас бага бол алгасна
-        if (finalAmount < MIN_AMOUNT) {
-          skipped.push({
-            row: excelRow,
-            reason: `дүн бага (min=${MIN_AMOUNT})`,
-            raw: { ...raw, amount: finalAmount },
-          });
-          current = null;
-          continue;
-        }
-
         if (finalAmount % ticketPrice !== 0) {
           skipped.push({
             row: excelRow,
             reason: `дүн буруу (ticketPrice=${ticketPrice}-д хуваагдахгүй)`,
-            raw: { ...raw, amount: finalAmount },
+            raw,
           });
           current = null;
           continue;
         }
 
         const qty = finalAmount / ticketPrice;
-
         if (!Number.isFinite(qty) || qty <= 0 || qty > MAX_QTY) {
           skipped.push({ row: excelRow, reason: `qty буруу (1-${MAX_QTY})`, raw });
           current = null;
@@ -264,21 +251,11 @@ export async function POST(req: Request) {
       // --- CASE 2: УТАСГҮЙ МӨР (continuation) ---
       if (phoneText === "") {
         if (!current) {
-          skipped.push({ row: excelRow, reason: "утасгүй мөр (continuation) гэхдээ өмнөх purchase алга", raw });
+          skipped.push({ row: excelRow, reason: "утасгүй мөр боловч өмнөх purchase алга", raw });
           continue;
         }
 
         const addAmount = amount > 0 ? amount : ticketPrice;
-
-        // ✅ continuation дээр ч мөн бага дүнг зөвшөөрөхгүй (min = ticketPrice)
-        if (addAmount < MIN_AMOUNT) {
-          skipped.push({
-            row: excelRow,
-            reason: `утасгүй мөрийн дүн бага (min=${MIN_AMOUNT})`,
-            raw: { ...raw, amount: addAmount },
-          });
-          continue;
-        }
 
         if (addAmount % ticketPrice !== 0) {
           skipped.push({ row: excelRow, reason: "утасгүй мөрийн дүн буруу", raw });
@@ -296,27 +273,27 @@ export async function POST(req: Request) {
         continue;
       }
 
-      skipped.push({ row: excelRow, reason: parsed.reason || "дан текст/богино тоо", raw });
+      skipped.push({ row: excelRow, reason: parsed.reason || "утас танигдсангүй", raw });
     }
 
-    // ✅ FINAL FILTER: нийлбэр дүн MIN_AMOUNT-аас доош группийг бүр мөсөн алгасна
-    // (MIN_AMOUNT = тухайн raffle-ийн ticketPrice)
+    // ✅ MIN_AMOUNT filter (хүсвэл)
     const finalGroups: Group[] = [];
     let skippedLowAmount = 0;
 
     for (const g of groups) {
-      if (g.amount < MIN_AMOUNT) {
+      if (MIN_AMOUNT > 0 && g.amount < MIN_AMOUNT) {
         skippedLowAmount++;
         skipped.push({
           row: g.startRow,
           reason: `нийт дүн бага (<${MIN_AMOUNT}) тул DB-д оруулахгүй`,
-          raw: { phone: g.phoneRaw, amount: g.amount },
+          raw: { phone: g.phoneRaw, amount: g.amount, purchasedAt: g.purchasedAt },
         });
       } else {
         finalGroups.push(g);
       }
     }
 
+    // ✅ Transaction: counter + purchases + tickets
     const result = await prisma.$transaction(
       async (tx) => {
         const counter = await tx.raffleCounter.upsert({
@@ -326,7 +303,7 @@ export async function POST(req: Request) {
         });
 
         let nextSeq = counter.nextSeq;
-        const prefix = raffleId.slice(-6).toUpperCase();
+        const prefix = raffleId.slice(0, 4).toUpperCase();
 
         let insertedPurchases = 0;
         let insertedTickets = 0;
@@ -334,81 +311,78 @@ export async function POST(req: Request) {
         const purchaseIds: string[] = [];
 
         for (const g of finalGroups) {
-  const keyPurchasedAt = new Date(g.purchasedAt).toISOString();
-const uniqueKey = crypto
-  .createHash("sha1")
-  .update(`${raffleId}:${g.phoneE164}:${keyPurchasedAt}:${g.amount}`)
-  .digest("hex");
+          // ✅ UNIQUE KEY: file name-ээс салгасан
+          // ⚠️ Ижил өдөр/ижил amount/ижил утас 2 удаа байж болно → startRow-оор ялгана
+          const keyPurchasedAt = new Date(g.purchasedAt).toISOString();
+          const uniqueKey = crypto
+            .createHash("sha1")
+            .update(`${raffleId}:${g.phoneE164}:${keyPurchasedAt}:${g.amount}:${g.startRow}`)
+            .digest("hex");
 
-  // 1) өмнө нь энэ мөрөөр purchase үүссэн эсэхийг шалгана
-  const existingPurchase = await tx.purchase.findUnique({
-    where: { uniqueKey },
-    select: { id: true, qty: true },
-  });
+          const existed = await tx.purchase.findUnique({
+            where: { uniqueKey },
+            select: { id: true },
+          });
 
-  // 2) purchase upsert (update/create)
-  const purchase = await tx.purchase.upsert({
-    where: { uniqueKey },
-    update: {
-      phoneRaw: g.phoneRaw,
-      phoneE164: g.phoneE164,
-      qty: g.qty,
-      amount: g.amount,
-      createdAt: g.purchasedAt,
-    },
-    create: {
-      raffleId,
-      phoneRaw: g.phoneRaw,
-      phoneE164: g.phoneE164,
-      qty: g.qty,
-      amount: g.amount,
-      createdAt: g.purchasedAt,
-      uniqueKey,
-    },
-  });
+          const purchase = await tx.purchase.upsert({
+            where: { uniqueKey },
+            update: {
+              phoneRaw: g.phoneRaw,
+              phoneE164: g.phoneE164,
+              qty: g.qty,
+              amount: g.amount,
+              createdAt: g.purchasedAt,
+            },
+            create: {
+              raffleId,
+              phoneRaw: g.phoneRaw,
+              phoneE164: g.phoneE164,
+              qty: g.qty,
+              amount: g.amount,
+              createdAt: g.purchasedAt,
+              uniqueKey,
+            },
+          });
 
-  // 3) тухайн purchase дээр хэдэн ticket аль хэдийн байгааг шалгана
-  const existingTicketCount = await tx.ticket.count({
-    where: { raffleId, purchaseId: purchase.id },
-  });
+          // ✅ ticket тоо аль хэдийн хэд байна?
+          const existingTicketCount = await tx.ticket.count({
+            where: { raffleId, purchaseId: purchase.id },
+          });
 
-  // 4) зөвхөн дутуу ticket-ийг үүсгэнэ
-  const need = g.qty - existingTicketCount;
+          // ✅ зөвхөн дутуу ticket-ийг үүсгэнэ
+          const need = g.qty - existingTicketCount;
 
-  // ✅ Хэрэв need<=0 бол энэ purchase дээр ticket аль хэдийн бүрэн байна.
-  //    Тэгэхээр nextSeq-ийг ОГТ өсгөхгүй!
-  if (need <= 0) {
-    // purchaseIds-д нэмэх эсэхээ сонгоно (SMS дахин явуулахгүй бол нэмэхгүй)
-    // purchaseIds.push(purchase.id);
-    continue;
-  }
+          // ticket хангалттай байвал nextSeq-ийг өсгөхгүй!
+          if (need <= 0) {
+            // purchaseIds нэмэхгүй → SMS дахин явуулахгүй
+            continue;
+          }
 
-  purchaseIds.push(purchase.id);
-  insertedPurchases += existingPurchase ? 0 : 1;
+          if (!existed) insertedPurchases += 1;
+          purchaseIds.push(purchase.id);
 
-  const startSeq = nextSeq;
-  const endSeq = startSeq + need;
-  nextSeq = endSeq;
+          const startSeq = nextSeq;
+          const endSeq = startSeq + need;
+          nextSeq = endSeq;
 
-  const ticketsData = Array.from({ length: need }).map((_, i) => {
-    const n = startSeq + i;
-    return {
-      raffleId,
-      purchaseId: purchase.id,
-      code: `${prefix}-${pad6(n)}`,
-      createdAt: g.purchasedAt,
-    };
-  });
+          const ticketsData = Array.from({ length: need }).map((_, i) => {
+            const n = startSeq + i;
+            return {
+              raffleId,
+              purchaseId: purchase.id,
+              code: `${prefix}-${pad6(n)}`,
+              createdAt: g.purchasedAt,
+            };
+          });
 
-  const created = await tx.ticket.createMany({
-    data: ticketsData,
-    skipDuplicates: true,
-  });
+          const created = await tx.ticket.createMany({
+            data: ticketsData,
+            skipDuplicates: true,
+          });
 
-  insertedTickets += created.count;
-  skippedTickets += ticketsData.length - created.count;
-}
-
+          insertedTickets += created.count;
+          skippedTickets += ticketsData.length - created.count;
+        }
 
         await tx.raffleCounter.update({
           where: { raffleId },
@@ -421,12 +395,13 @@ const uniqueKey = crypto
           insertedTickets,
           skippedTickets,
           purchaseIds,
+          nextSeq,
         };
       },
       { timeout: 600000, maxWait: 60000 }
     );
 
-    // ✅ Transaction commit болсон ДАРАА SMS илгээнэ
+    // ✅ Transaction commit болсон ДАРАА SMS (шинээр ticket нэмэгдсэн purchase дээр л)
     if (Array.isArray((result as any).purchaseIds) && (result as any).purchaseIds.length > 0) {
       const ids = (result as any).purchaseIds as string[];
       await Promise.allSettled(ids.map((id) => sendPurchaseSms(id)));
@@ -436,8 +411,6 @@ const uniqueKey = crypto
       ok: true,
       raffleId,
       sourceFile,
-      ticketPrice,
-      minAmount: MIN_AMOUNT, // ✅ UI/debug-д хэрэгтэй
       ...result,
       skippedLowAmount,
       skipped,
