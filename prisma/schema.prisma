@@ -70,6 +70,13 @@ model Purchase {
   smsStatus String?   // "sent" | "failed"
   smsError  String?
 }
+model AdminSession {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  tokenHash String   @unique
+}
 
 //////////////////////////////////////
 // Ticket

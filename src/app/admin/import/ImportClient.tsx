@@ -117,29 +117,45 @@ export default function ImportClient() {
         return;
       }
 
+      // ✅ IMPORTANT: таны API folder нь src/app/api/import/route.ts гэж харагдсан.
+      // Тэгэхээр endpoint нь /api/import байна.
       const res = await fetch("/api/admin/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          raffleId,
-          sourceFile: file.name,
-          rows,
-        }),
-      });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    raffleId,
+    sourceFile: file.name,
+    rows,
+  }),
+});
 
-      const dataText = await res.text();
+
+      const contentType = res.headers.get("content-type") || "";
+      const text = await res.text();
+
       if (!res.ok) {
-        alert(dataText || "Import failed");
+        alert(text || "Import failed");
         return;
       }
 
-      const data = JSON.parse(dataText) as ImportResult;
-      setResult(data);
+      // ✅ Зарим үед HTML error page буцаадаг тул JSON эсэхийг шалгана
+      if (!contentType.includes("application/json")) {
+        alert(
+          "API JSON буцаасангүй (HTML response ирсэн байна). Доорх нь эхний хэсэг:\n\n" +
+            text.slice(0, 300)
+        );
+        return;
+      }
 
-      const skippedCount = data.skipped?.length ?? 0;
+      const parsed = JSON.parse(text) as ImportResult;
+      setResult(parsed);
+
+      const skippedCount = parsed.skipped?.length ?? 0;
 
       alert(
-        `Import OK.\ncreatedPurchases=${data.insertedPurchases ?? 0}\ncreatedTickets=${data.insertedTickets ?? 0}\nskippedLowAmount=${data.skippedLowAmount ?? 0}\nnotImportedRows=${skippedCount}`
+        `Import OK.\ncreatedPurchases=${parsed.insertedPurchases ?? 0}\ncreatedTickets=${
+          parsed.insertedTickets ?? 0
+        }\nskippedLowAmount=${parsed.skippedLowAmount ?? 0}\nnotImportedRows=${skippedCount}`
       );
     } catch (e: any) {
       alert(e?.message ?? "Import error");
