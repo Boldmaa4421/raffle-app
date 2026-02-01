@@ -96,8 +96,9 @@ export default function HomeLookup() {
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-4xl max-h-[80vh] overflow-auto
-              rounded-2xl border border-white/10 bg-black/55
-              backdrop-blur-xl shadow-2xl p-4 text-white"
+  rounded-2xl border border-white/10 bg-black/55
+  backdrop-blur-xl shadow-2xl p-3 sm:p-4 text-white"
+
           >
             <div className="flex items-center justify-between gap-3">
               <div className="font-extrabold text-lg">Үр дүн</div>
@@ -117,13 +118,25 @@ export default function HomeLookup() {
 
             {data?.ok && (
               <div className="mt-4">
-                <div className="text-white/80">
-                  Утас: <span className="font-bold text-white">{data.phoneE164}</span>
-                  {"  "}• Худалдан авалт:{" "}
-                  <span className="font-bold text-white">{data.totalPurchases}</span>
-                  {"  "}• Код:{" "}
-                  <span className="font-bold text-amber-300">{data.totalCodes}</span>
-                </div>
+               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/80">
+  <span>
+    Утас: <span className="font-bold text-white">{data.phoneE164}</span>
+  </span>
+
+  <span className="text-white/35">•</span>
+
+  <span>
+    Худалдан авалт: <span className="font-bold text-white">{data.totalPurchases}</span>
+  </span>
+
+  <span className="text-white/35">•</span>
+
+  <span className="flex items-baseline gap-2">
+    <span className="font-extrabold text-white text-base sm:text-lg">Код</span>
+    <span className="font-black text-amber-300 text-lg sm:text-xl">{data.totalCodes}</span>
+  </span>
+</div>
+
 
                 <div className="mt-4 grid gap-3">
                   {data.purchases?.map((p) => (
@@ -144,22 +157,31 @@ export default function HomeLookup() {
                         </div>
                       </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {p.codes.map((c) => (
-                          <span
-                            key={c}
-                            title={c}
-                            className="font-mono font-extrabold text-sm
-                              px-3 py-1 rounded-full
-                              border border-amber-400/20 bg-amber-950/25"
-                          >
-                            {displayCode(c)}
-                          </span>
-                        ))}
-                        {p.codes.length === 0 && (
-                          <span className="text-white/70">Код олдсонгүй</span>
-                        )}
-                      </div>
+                      <div className="mt-3">
+  <div className="text-white/80 font-extrabold text-base sm:text-lg">
+    Код
+  </div>
+
+  <div className="mt-2 flex flex-wrap gap-2">
+    {p.codes.map((c) => (
+      <span
+        key={c}
+        title={c}
+        className="font-mono font-black text-base sm:text-lg
+          px-3 py-1.5 rounded-full
+          border border-amber-400/25 bg-amber-950/30
+          text-amber-100"
+      >
+        {displayCode(c)}
+      </span>
+    ))}
+
+    {p.codes.length === 0 && (
+      <span className="text-white/70">Код олдсонгүй</span>
+    )}
+  </div>
+</div>
+
                     </div>
                   ))}
                 </div>

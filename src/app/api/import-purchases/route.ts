@@ -163,10 +163,12 @@ const prefix = raffleId.slice(-6).toUpperCase();
   let skippedTickets = 0; 
 
   for (const g of groups) {
-    const uniqueKey = crypto
-      .createHash("sha1")
-      .update(`${raffleId}:${sourceFile}:${g.startRow}`)
-      .digest("hex");
+   const keyPurchasedAt = new Date(g.purchasedAt).toISOString();
+const uniqueKey = crypto
+  .createHash("sha1")
+  .update(`${raffleId}:${g.phoneE164}:${keyPurchasedAt}:${g.amount}`)
+  .digest("hex");
+
 
     const purchase = await tx.purchase.upsert({
       where: { uniqueKey },

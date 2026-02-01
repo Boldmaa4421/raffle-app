@@ -334,56 +334,81 @@ export async function POST(req: Request) {
         const purchaseIds: string[] = [];
 
         for (const g of finalGroups) {
-          const uniqueKey = crypto
-            .createHash("sha1")
-            .update(`${raffleId}:${sourceFile}:${g.startRow}`)
-            .digest("hex");
+  const keyPurchasedAt = new Date(g.purchasedAt).toISOString();
+const uniqueKey = crypto
+  .createHash("sha1")
+  .update(`${raffleId}:${g.phoneE164}:${keyPurchasedAt}:${g.amount}`)
+  .digest("hex");
 
-          const purchase = await tx.purchase.upsert({
-            where: { uniqueKey },
-            update: {
-              phoneRaw: g.phoneRaw,
-              phoneE164: g.phoneE164,
-              qty: g.qty,
-              amount: g.amount,
-              createdAt: g.purchasedAt,
-            },
-            create: {
-              raffleId,
-              phoneRaw: g.phoneRaw,
-              phoneE164: g.phoneE164,
-              qty: g.qty,
-              amount: g.amount,
-              createdAt: g.purchasedAt,
-              uniqueKey,
-            },
-          });
+  // 1) өмнө нь энэ мөрөөр purchase үүссэн эсэхийг шалгана
+  const existingPurchase = await tx.purchase.findUnique({
+    where: { uniqueKey },
+    select: { id: true, qty: true },
+  });
 
-          purchaseIds.push(purchase.id);
-          insertedPurchases += 1;
+  // 2) purchase upsert (update/create)
+  const purchase = await tx.purchase.upsert({
+    where: { uniqueKey },
+    update: {
+      phoneRaw: g.phoneRaw,
+      phoneE164: g.phoneE164,
+      qty: g.qty,
+      amount: g.amount,
+      createdAt: g.purchasedAt,
+    },
+    create: {
+      raffleId,
+      phoneRaw: g.phoneRaw,
+      phoneE164: g.phoneE164,
+      qty: g.qty,
+      amount: g.amount,
+      createdAt: g.purchasedAt,
+      uniqueKey,
+    },
+  });
 
-          const startSeq = nextSeq;
-          const endSeq = startSeq + g.qty;
-          nextSeq = endSeq;
+  // 3) тухайн purchase дээр хэдэн ticket аль хэдийн байгааг шалгана
+  const existingTicketCount = await tx.ticket.count({
+    where: { raffleId, purchaseId: purchase.id },
+  });
 
-          const ticketsData = Array.from({ length: g.qty }).map((_, i) => {
-            const n = startSeq + i;
-            return {
-              raffleId,
-              purchaseId: purchase.id,
-              code: `${prefix}-${pad6(n)}`,
-              createdAt: g.purchasedAt,
-            };
-          });
+  // 4) зөвхөн дутуу ticket-ийг үүсгэнэ
+  const need = g.qty - existingTicketCount;
 
-          const created = await tx.ticket.createMany({
-            data: ticketsData,
-            skipDuplicates: true,
-          });
+  // ✅ Хэрэв need<=0 бол энэ purchase дээр ticket аль хэдийн бүрэн байна.
+  //    Тэгэхээр nextSeq-ийг ОГТ өсгөхгүй!
+  if (need <= 0) {
+    // purchaseIds-д нэмэх эсэхээ сонгоно (SMS дахин явуулахгүй бол нэмэхгүй)
+    // purchaseIds.push(purchase.id);
+    continue;
+  }
 
-          insertedTickets += created.count;
-          skippedTickets += ticketsData.length - created.count;
-        }
+  purchaseIds.push(purchase.id);
+  insertedPurchases += existingPurchase ? 0 : 1;
+
+  const startSeq = nextSeq;
+  const endSeq = startSeq + need;
+  nextSeq = endSeq;
+
+  const ticketsData = Array.from({ length: need }).map((_, i) => {
+    const n = startSeq + i;
+    return {
+      raffleId,
+      purchaseId: purchase.id,
+      code: `${prefix}-${pad6(n)}`,
+      createdAt: g.purchasedAt,
+    };
+  });
+
+  const created = await tx.ticket.createMany({
+    data: ticketsData,
+    skipDuplicates: true,
+  });
+
+  insertedTickets += created.count;
+  skippedTickets += ticketsData.length - created.count;
+}
+
 
         await tx.raffleCounter.update({
           where: { raffleId },
