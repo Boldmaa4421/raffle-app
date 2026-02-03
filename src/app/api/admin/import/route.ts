@@ -266,18 +266,19 @@ export async function POST(req: Request) {
         const diff = paid - amount; // илүү бол +, яг таарсан бол 0
 
         // ✅ ЗӨВХӨН ИЛҮҮ ТӨЛСӨНГ DB-Д ОРУУЛНА (diff > 0)
-        if (diff <= 0) {
-          skipped.push({
-            row: excelRow,
-            reason: diff === 0 ? "яг таарсан төлбөр (илүү биш)" : "дутуу/таарахгүй",
-            phoneRaw: parsed.phoneRaw,
-            paid,
-            diff,
-            ticketPrice,
-          });
-          current = null;
-          continue;
-        }
+     // ✅ ДУТУУ биш бол оруулна (яг таарсан = diff 0 OK)
+if (diff < 0) {
+  skipped.push({
+    row: excelRow,
+    reason: "дутуу төлбөр (тооцоогоор)",
+    phoneRaw: parsed.phoneRaw,
+    paid,
+    diff,
+    ticketPrice,
+  });
+  current = null;
+  continue;
+}
 
         current = {
           startRow: excelRow,
@@ -351,7 +352,7 @@ export async function POST(req: Request) {
         current.diff = current.paid - current.amount;
 
         // ✅ нэмэлт мөрүүдийн дараа илүү биш болчихвол: энэ purchase-г DB-д оруулахгүй
-        if (current.diff <= 0) {
+        if (current.diff < 0) {
           skipped.push({
             row: excelRow,
             reason: "нэмэлт мөрүүдийн дараа илүү төлөлт үгүй болсон",
