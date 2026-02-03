@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import HomeLookup from "../components/HomeLookup";
 import RaffleCheckButton from "@/components/RaffleCheckButton";
 
