@@ -11,28 +11,23 @@ function unauthorized() {
 }
 
 export function middleware(req: NextRequest) {
-  // зөвхөн /admin хамгаална (matcher дээр байгаа)
-  const user = process.env.ADMIN_USER || "";
-  const pass = process.env.ADMIN_PASS || "";
+  const user = (process.env.ADMIN_USER || "").trim();
+  const pass = (process.env.ADMIN_PASS || "").trim();
 
-  // env байхгүй бол хамгаалалт ажиллахгүй (аюултай)
-  if (!user || !pass) {
-    return unauthorized();
-  }
+  // env тохироогүй бол хамгаалалт үргэлж 401 буцаана
+  if (!user || !pass) return unauthorized();
 
   const auth = req.headers.get("authorization");
-  if (!auth || !auth.startsWith("Basic ")) {
-    return unauthorized();
-  }
+  if (!auth?.startsWith("Basic ")) return unauthorized();
 
   try {
     const base64 = auth.slice("Basic ".length);
-    const decoded = Buffer.from(base64, "base64").toString("utf8");
-    const [u, p] = decoded.split(":");
+    const decoded = atob(base64); // ✅ Edge-safe
+    const idx = decoded.indexOf(":");
+    const u = idx >= 0 ? decoded.slice(0, idx) : "";
+    const p = idx >= 0 ? decoded.slice(idx + 1) : "";
 
-    if (u === user && p === pass) {
-      return NextResponse.next();
-    }
+    if (u === user && p === pass) return NextResponse.next();
     return unauthorized();
   } catch {
     return unauthorized();
