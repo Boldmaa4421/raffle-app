@@ -81,16 +81,49 @@ function looksLikeBankAccount(text: string) {
 }
 
 // ✅ Нэг нүдэнд олон дугаар/текст байж болно. Эхний valid утсыг олно.
-function parsePhone(raw: any): { ok: boolean; phoneE164?: string; phoneRaw: string; reason?: string } {
+function parsePhone(raw: any): {
+  ok: boolean;
+  phoneE164?: string;
+  phoneRaw: string;
+  reason?: string;
+} {
   const s = normalizeCell(raw);
 
   if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
-  if (looksLikeBankAccount(s)) return { ok: false, phoneRaw: s, reason: "данс/банк" };
-  if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "тоогүй" };
 
+  // ❌ Данс / банк
+  if (looksLikeBankAccount(s)) {
+    return { ok: false, phoneRaw: s, reason: "данс/банк" };
+  }
+
+  // Тоо огт байхгүй
+  if (!/\d/.test(s)) {
+    return { ok: false, phoneRaw: s, reason: "тоогүй" };
+  }
+
+  // 1️⃣ Бүх цифрийг нийлүүлж авна (space, -, . бүгдийг арилгана)
+  const digitsOnly = s.replace(/\D/g, "");
+
+  // 2️⃣ Монгол 8 оронтой (хамгийн чухал FIX)
+  if (/^\d{8}$/.test(digitsOnly)) {
+    const e = normalizePhoneE164(digitsOnly);
+    if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+  }
+
+  // 3️⃣ 976XXXXXXXX (11 оронтой)
+  if (/^976\d{8}$/.test(digitsOnly)) {
+    return { ok: true, phoneE164: `+${digitsOnly}`, phoneRaw: s };
+  }
+
+  // 4️⃣ +E164 формат
+  const plusMatches = s.match(/\+\d{8,15}/g) ?? [];
+  const e164 = plusMatches[0];
+  if (e164 && /^\+\d{8,15}$/.test(e164)) {
+    return { ok: true, phoneE164: e164, phoneRaw: s };
+  }
+
+  // 5️⃣ Эцэст нь: 8 оронтой chunk хайна (хуучин логик, fallback)
   const chunks = s.match(/\d+/g) ?? [];
-
-  // 1) Монгол 8 оронтойг хамгийн түрүүнд
   for (const c of chunks) {
     if (c.length === 8) {
       const e = normalizePhoneE164(c);
@@ -98,18 +131,9 @@ function parsePhone(raw: any): { ok: boolean; phoneE164?: string; phoneRaw: stri
     }
   }
 
-  // 2) 976xxxxxxxx
-  for (const c of chunks) {
-    if (c.length === 11 && c.startsWith("976")) return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
-  }
-
-  // 3) +E164
-  const plusMatches = s.match(/\+\d{8,15}/g) ?? [];
-  const e164 = plusMatches[0];
-  if (e164 && /^\+\d{8,15}$/.test(e164)) return { ok: true, phoneE164: e164, phoneRaw: s };
-
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
 }
+
 
 type Group = {
   startRow: number;
