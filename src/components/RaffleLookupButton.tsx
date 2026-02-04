@@ -112,7 +112,17 @@ export default function RaffleLookupButton({ raffleId, raffleTitle }: Props) {
   <div className="px-5 pb-3 overflow-auto overscroll-contain">
     {data && (
       <div className="mt-2">
-        <TicketPopup open={true} onClose={() => setData(null)} phone={phone} data={data} />
+      <TicketPopup
+  open={true}
+  onClose={() => setData(null)}
+  phone={phone}
+  data={data}
+  loading={false}
+  error=""
+  onSearch={() => {}}
+  setPhone={() => {}}
+/>
+
       </div>
     )}
   </div>
