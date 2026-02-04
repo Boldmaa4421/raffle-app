@@ -162,40 +162,79 @@ function parsePhone(raw: any): {
 } {
   const s = normalizeCell(raw);
 
+  // 0) хоосон / цифргүй бол утас биш
   if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
-
-  // цифр огт байхгүй = дан текст
   if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "дан текст" };
 
-  // space / - / бусад тэмдэгтүүдийг арилгаад зөвхөн цифр үлдээнэ
-  let digits = s.replace(/\D/g, "");
-
-  // "00" префикс байвал авч хаяна (ж: 0044..., 001...)
-  digits = digits.replace(/^00+/, "");
-
-  // 8-аас бага бол утас биш
-  if (digits.length < 8) {
-    return { ok: false, phoneRaw: s, reason: "8-аас бага тоо" };
+  // 1) +E164 (хамгийн түрүүнд)
+  // ж: "+8210....", "+976....", "+86...."
+  // 1) +E164 формат
+const plusMatches = s.match(/\+\d{8,15}/g) ?? [];
+if (plusMatches.length > 0) {
+  const cand = plusMatches[0];
+  if (cand && /^\+\d{8,15}$/.test(cand)) {
+    return { ok: true, phoneE164: cand, phoneRaw: s };
   }
+}
 
-  // ✅ Монгол 8 оронтой
-  if (/^\d{8}$/.test(digits)) {
-    const e = normalizePhoneE164(digits);
+// 2) 00-оор эхэлсэн олон улсын формат
+const m00 = s.match(/00\d{8,15}/);
+if (m00 && m00[0]) {
+  const digits = m00[0].slice(2);
+  if (/^\d{8,15}$/.test(digits)) {
+    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
+  }
+}
+
+
+  // 3) Бүх цифрийг нийлүүлээд шалгах (space, -, . бүгдийг арилгана)
+  const digitsOnly = s.replace(/\D/g, "");
+
+  // 3.1) Монгол 8 оронтой
+  if (/^\d{8}$/.test(digitsOnly)) {
+    const e = normalizePhoneE164(digitsOnly);
     if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-    return { ok: false, phoneRaw: s, reason: "монгол дугаар буруу" };
   }
 
-  // ✅ 976 + 8 digits (11)
-  if (/^976\d{8}$/.test(digits)) {
-    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
+  // 3.2) 976XXXXXXXX (11 оронтой Монгол E164)
+  if (/^976\d{8}$/.test(digitsOnly)) {
+    return { ok: true, phoneE164: `+${digitsOnly}`, phoneRaw: s };
   }
 
-  // ✅ Гадаад/урт дугаарууд: 8-15 цифрийг зөвшөөрнө (user хүсэлтээр)
-  if (digits.length >= 8 && digits.length <= 15) {
-    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
+  // 3.3) Ерөнхий олон улсын дугаар (8-15 оронтой) — ж: 0405569616 гэх мэт
+  if (/^\d{8,15}$/.test(digitsOnly)) {
+    // Монгол 8-ыг normalize хийе, бусдыг + болгоод явуулъя
+    if (digitsOnly.length === 8) {
+      const e = normalizePhoneE164(digitsOnly);
+      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+    }
+    return { ok: true, phoneE164: `+${digitsOnly}`, phoneRaw: s };
   }
 
-  return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
+  // 4) Нэг нүдэнд олон дугаар байвал (таны кейс: "99696773 90338875")
+  // digit chunk-уудаас 8-15 урттайг жагсаана
+  const chunks = s.match(/\d+/g) ?? [];
+  const candidates = chunks.filter((c) => c.length >= 8 && c.length <= 15);
+
+  if (candidates.length === 0) {
+    // 8-аас бага тоо эсвэл утас биш текст
+    return { ok: false, phoneRaw: s, reason: "утас биш (8-аас бага/текст)" };
+  }
+
+  // Монгол 8 оронтой байгаа бол тэрийг эхэлж авна
+  const mn8 = candidates.find((c) => c.length === 8);
+  if (mn8) {
+    const e = normalizePhoneE164(mn8);
+    if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+  }
+
+  // 976XXXXXXXX хэлбэр байвал тэрийг авна
+  const mn11 = candidates.find((c) => /^976\d{8}$/.test(c));
+  if (mn11) return { ok: true, phoneE164: `+${mn11}`, phoneRaw: s };
+
+  // Тэгээд эхний candidate-г олон улсын гэж үзээд + нэмнэ
+  const first = candidates[0];
+  return { ok: true, phoneE164: `+${first}`, phoneRaw: s };
 }
 
 

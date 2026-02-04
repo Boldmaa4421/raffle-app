@@ -160,6 +160,13 @@ export default async function HomePage() {
       Зураг байхгүй
     </div>
   )}
+  <div className="mt-3">
+      <RaffleLookupButton
+        raffleId={r.id}
+        raffleTitle={r.title}
+        imageUrl={r.imageUrl}
+      />
+    </div>
 </div>
 
 
