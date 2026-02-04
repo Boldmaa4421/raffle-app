@@ -75,57 +75,69 @@ export default function RaffleLookupButton({ raffleId, raffleTitle }: Props) {
           />
 
           {/* modal */}
-          <div className="absolute left-1/2 top-1/2 w-[94vw] max-w-xl -translate-x-1/2 -translate-y-1/2
-            rounded-2xl border border-white/10 bg-black/70 backdrop-blur-xl shadow-2xl p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-amber-200/90 font-extrabold">
-                  {title} · Код шалгах
-                </div>
-                <div className="mt-1 text-xs text-white/60">
-                  Энэ сугалаанд бүртгэлтэй кодуудыг шалгана
-                </div>
-              </div>
+         <div
+  className="
+    fixed left-1/2 top-1/2 w-[94vw] max-w-xl -translate-x-1/2 -translate-y-1/2
+    rounded-2xl border border-white/10 bg-black/70 backdrop-blur-xl shadow-2xl
+    max-h-[80dvh] flex flex-col overflow-hidden
+  "
+>
+  <div className="p-5">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <div className="text-amber-200/90 font-extrabold">
+          {title} · Код шалгах
+        </div>
+        <div className="mt-1 text-xs text-white/60">
+          Энэ сугалаанд бүртгэлтэй кодуудыг шалгана
+        </div>
+      </div>
 
-              <button
-                onClick={closeAll}
-                className="rounded-xl px-3 py-2 font-extrabold border border-white/10 bg-white/5 hover:bg-white/10"
-              >
-                Хаах
-              </button>
-            </div>
+      <button
+        onClick={closeAll}
+        className="rounded-xl px-3 py-2 font-extrabold border border-white/10 bg-white/5 hover:bg-white/10"
+      >
+        Хаах
+      </button>
+    </div>
 
-            <div className="mt-4 flex gap-2">
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Утасны дугаар"
-                className="flex-1 rounded-xl px-4 py-3 bg-white/5 border border-white/10 outline-none"
-              />
-              <button
-                onClick={onSearch}
-                disabled={loading || !phone.trim()}
-                className="rounded-xl px-5 py-3 font-extrabold
-                  bg-amber-300 text-black hover:bg-amber-200 transition disabled:opacity-60"
-              >
-                {loading ? "..." : "Хайх"}
-              </button>
-            </div>
+    <div className="mt-2 text-xs text-white/60">
+      Жишээ: <b>99112233</b> эсвэл <b>+97699112233</b>
+    </div>
 
-            <div className="mt-2 text-xs text-white/60">
-              Жишээ: <b>99112233</b> эсвэл <b>+97699112233</b>
-            </div>
+    {error && <div className="mt-2 text-sm text-red-400">{error}</div>}
+  </div>
 
-            {error && <div className="mt-2 text-sm text-red-400">{error}</div>}
+  {/* Body: scrollable */}
+  <div className="px-5 pb-3 overflow-auto overscroll-contain">
+    {data && (
+      <div className="mt-2">
+        <TicketPopup open={true} onClose={() => setData(null)} phone={phone} data={data} />
+      </div>
+    )}
+  </div>
 
-            {/* ✅ хайлтын үр дүн байвал TicketPopup-оор харуулна */}
-            {/* TicketPopup чинь open=true үед өөрөө UI гаргадаг бол энэ блок хэрэгтэй */}
-            {data && (
-              <div className="mt-4">
-                <TicketPopup open={true} onClose={() => setData(null)} phone={phone} data={data} />
-              </div>
-            )}
-          </div>
+  {/* Footer: sticky input+button (keyboard үед ч харагдана) */}
+  <div className="p-5 pt-3 border-t border-white/10 bg-black/60 backdrop-blur-xl">
+    <div className="flex gap-2">
+      <input
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        placeholder="Утасны дугаар"
+        className="flex-1 rounded-xl px-4 py-3 bg-white/5 border border-white/10 outline-none text-[16px]"
+      />
+      <button
+        onClick={onSearch}
+        disabled={loading || !phone.trim()}
+        className="rounded-xl px-5 py-3 font-extrabold
+          bg-amber-300 text-black hover:bg-amber-200 transition disabled:opacity-60"
+      >
+        {loading ? "..." : "Хайх"}
+      </button>
+    </div>
+  </div>
+</div>
+
         </div>
       )}
     </div>

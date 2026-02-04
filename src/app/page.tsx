@@ -276,8 +276,7 @@ export default async function HomePage() {
 
         <div className="mt-10 border-t border-white/10 pt-6 text-sm text-white/60 flex items-center justify-between gap-4 flex-wrap">
           <div>© {new Date().getFullYear()} Хурдан морь сугалаат худалдаа. Бүх эрх хуулиар хамгаалагдсан.</div>
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2">
-            Хүссэн website-аар захиалга хийнэ: <b className="text-white">99482298</b>
+          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2">            
           </div>
         </div>
       </div>
