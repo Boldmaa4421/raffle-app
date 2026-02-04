@@ -52,28 +52,27 @@ model Winner {
 // Purchase
 //////////////////////////////////////
 model Purchase {
-  id       String @id @default(cuid())
-  raffleId String
-  raffle   Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  raffleId   String
+  raffle     Raffle    @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
-  phoneRaw  String
-  phoneE164 String
-  qty       Int
-  amount    Int
-  createdAt DateTime @default(now())
+  phoneRaw   String
+  phoneE164  String
 
-paidAmount  Int?   // хэрэглэгчийн төлсөн бодит дүн
-overpayDiff Int?   // илүү төлсөн зөрүү (paid - amount)
+  qty        Int
+  amount     Int
+  paidAmount Int?
+  overpayDiff Int?
 
-  uniqueKey String @unique
+  uniqueKey  String   @unique
 
-  tickets Ticket[]
+  createdAt  DateTime @default(now())
 
-   // ✅ SMS tracking
-  smsSentAt DateTime?
-  smsStatus String?   // "sent" | "failed"
-  smsError  String?
+  @@index([raffleId])
+  @@index([phoneE164])
+  @@index([raffleId, phoneE164]) // ✅ index байж болно, unique биш
 }
+
 model AdminSession {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
