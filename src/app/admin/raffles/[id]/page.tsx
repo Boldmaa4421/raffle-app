@@ -62,10 +62,7 @@ export default async function AdminRaffleDetailPage({
       createdAt: true,
       uniqueKey: true,
 
-       // ✅ нэм
-    smsStatus: true,
-    smsSentAt: true,
-    smsError: true,
+      
     },
   });
   const winner = await prisma.winner.findUnique({
@@ -189,53 +186,7 @@ export default async function AdminRaffleDetailPage({
                 <td style={td}>{formatMNT(p.amount)}</td>
                 <td style={{ ...td, fontFamily: "monospace", fontSize: 12, opacity: 0.8 }}>
                   {p.uniqueKey}
-                  <td style={td}>
-  {p.smsStatus === "sent" ? (
-    <span style={{
-      display: "inline-block",
-      padding: "4px 10px",
-      borderRadius: 999,
-      border: "1px solid rgba(34,197,94,.35)",
-      background: "rgba(34,197,94,.12)",
-      fontWeight: 800,
-      fontSize: 12,
-    }}>
-      ✅ Явсан
-     {p.smsSentAt ? (
-    <span style={{ opacity: 0.75, fontWeight: 800 }}>
-      {new Date(p.smsSentAt).toLocaleString()}
-    </span>
-  ) : null}
-</span>
-  ) : p.smsStatus === "failed" ? (
-    <span style={{
-      display: "inline-block",
-      padding: "4px 10px",
-      borderRadius: 999,
-      border: "1px solid rgba(239,68,68,.35)",
-      background: "rgba(239,68,68,.12)",
-      fontWeight: 800,
-      fontSize: 12,
-    }}
-    title={p.smsError ?? ""}
-    >
-      ❌ Амжилтгүй
-    </span>
-  ) : (
-    <span style={{
-      display: "inline-block",
-      padding: "4px 10px",
-      borderRadius: 999,
-      border: "1px solid rgba(255,255,255,.12)",
-      background: "rgba(255,255,255,.06)",
-      fontWeight: 800,
-      fontSize: 12,
-      opacity: 0.8,
-    }}>
-      — Илгээгдээгүй
-    </span>
-  )}
-</td>
+                  
 
                 </td>
               </tr>
