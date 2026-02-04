@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
@@ -52,33 +52,27 @@ model Winner {
 // Purchase
 //////////////////////////////////////
 model Purchase {
-  id         String   @id @default(cuid())
-  raffleId   String
-  raffle     Raffle    @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  raffleId String
+  raffle   Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
-  phoneRaw   String
-  phoneE164  String
+  phoneRaw  String
+  phoneE164 String
 
-  qty        Int
-  amount     Int
-  paidAmount Int?
+  qty         Int
+  amount      Int
+  paidAmount  Int?
   overpayDiff Int?
 
-  uniqueKey  String   @unique
+  uniqueKey String @unique
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  tickets Ticket[] // ✅ ЭНИЙГ НЭМ
 
   @@index([raffleId])
   @@index([phoneE164])
-  @@index([raffleId, phoneE164]) // ✅ index байж болно, unique биш
-}
-
-model AdminSession {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-
-  tokenHash String   @unique
+  @@index([raffleId, phoneE164])
 }
 
 //////////////////////////////////////
