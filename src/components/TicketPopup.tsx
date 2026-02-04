@@ -1,63 +1,48 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 
-type TicketPopupProps = {
-  open: boolean;
-  onClose: () => void;
-  phone?: string;
-  data?: any; // backend response shape өөр байж болох тул safe
+type Group = {
+  raffleId: string;
+  raffleTitle: string;
+  purchasedAt: string | Date;
+  amount: number;
+  codes: string[];
 };
 
-export default function TicketPopup({ open, onClose, phone, data }: TicketPopupProps) {
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
+export default function TicketPopup({
+  open,
+  onClose,
+  phone,
+  data,
+}: {
+  open: boolean;
+  onClose: () => void;
+  phone: string;
+  data: { phone: string; purchases: number; codes: number; groups: Group[] } | null;
+}) {
   if (!open) return null;
 
-  // ---- data normalize (аль ч формат ирсэн OK) ----
-  const purchases: any[] =
-    (Array.isArray(data?.purchases) && data.purchases) ||
-    (Array.isArray(data?.items) && data.items) ||
-    (Array.isArray(data?.rows) && data.rows) ||
-    [];
+  const fmt = (d: any) => {
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? "" : dt.toLocaleString();
+  };
 
-  const directCodes: string[] =
-    (Array.isArray(data?.codes) && data.codes) ||
-    (Array.isArray(data?.tickets) && data.tickets.map((t: any) => t?.code).filter(Boolean)) ||
-    [];
+  const money = (n: number) =>
+    new Intl.NumberFormat("mn-MN").format(Number(n || 0)) + "₮";
 
-  const totalPurchases =
-    typeof data?.totalPurchases === "number"
-      ? data.totalPurchases
-      : typeof data?.purchasesCount === "number"
-      ? data.purchasesCount
-      : purchases.length;
+  const codeLabel = (code: string) => {
+    // "ABCD-000012" → "12"
+    const withoutPrefix = code.replace(/^[A-Za-z0-9]+-/, "");
+    const n = parseInt(withoutPrefix, 10);
+    return Number.isFinite(n)
+      ? String(n)
+      : withoutPrefix.replace(/^0+/, "") || withoutPrefix;
+  };
 
-  const totalTickets =
-    typeof data?.totalTickets === "number"
-      ? data.totalTickets
-      : typeof data?.ticketsCount === "number"
-      ? data.ticketsCount
-      : (purchases.reduce((acc, p) => acc + (p?.tickets?.length || p?.codes?.length || 0), 0) || directCodes.length);
-
-  const title = data?.raffleTitle || data?.title || "Сугалаа";
-
-  function fmtDate(d: any) {
-    try {
-      const dt = new Date(d);
-      if (isNaN(dt.getTime())) return "";
-      return dt.toLocaleString("mn-MN");
-    } catch {
-      return "";
-    }
-  }
+  const groups = data?.groups ?? [];
+  const purchases = data?.purchases ?? 0;
+  const totalCodes = data?.codes ?? 0;
 
   return (
     <div
@@ -66,33 +51,29 @@ export default function TicketPopup({ open, onClose, phone, data }: TicketPopupP
         paddingTop: "max(env(safe-area-inset-top), 12px)",
         paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
       }}
-      role="dialog"
-      aria-modal="true"
     >
       {/* backdrop */}
       <button
-        aria-label="Хаах"
+        aria-label="Close"
         onClick={onClose}
         className="absolute inset-0 bg-black/60"
         style={{ WebkitTapHighlightColor: "transparent" }}
       />
 
-      {/* modal */}
-      <div className="relative w-[94vw] max-w-xl rounded-2xl border border-white/10 bg-black/80 shadow-2xl">
-        {/* header */}
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 p-4 border-b border-white/10 bg-black/60 backdrop-blur">
+      {/* modal card */}
+      <div className="relative w-[94vw] max-w-xl rounded-2xl border border-white/10 bg-black/75 backdrop-blur-xl shadow-2xl overflow-hidden">
+        {/* header (sticky) */}
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 p-4 border-b border-white/10 bg-black/70">
           <div className="min-w-0">
-            <div className="text-amber-200/90 font-extrabold text-base sm:text-lg truncate">
-              {title} · Сугалааны код
+            <div className="text-amber-200/90 font-extrabold truncate">
+              Сугалааны код шалгах
+            </div>
+            <div className="mt-1 text-xs text-white/60 break-words">
+              Утас: <b className="text-white/80">{phone || data?.phone || ""}</b>
             </div>
             <div className="mt-1 text-xs text-white/60">
-              {phone ? (
-                <>
-                  Утас: <span className="font-semibold text-white/80">{phone}</span>
-                </>
-              ) : (
-                "Таны кодыг харуулна"
-              )}
+              Худалдан авалт: <b className="text-white/80">{purchases}</b> · Код:{" "}
+              <b className="text-emerald-300">{totalCodes}</b>
             </div>
           </div>
 
@@ -104,97 +85,56 @@ export default function TicketPopup({ open, onClose, phone, data }: TicketPopupP
           </button>
         </div>
 
-        {/* body (scrollable) */}
-        <div className="max-h-[78vh] overflow-auto p-4">
-          {/* summary */}
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="text-white/60 text-xs">Худалдан авалт</div>
-              <div className="text-white font-extrabold text-lg">{totalPurchases || 0}</div>
+        {/* body scroll */}
+        <div className="max-h-[78dvh] overflow-y-auto overscroll-contain p-4">
+          {!data ? (
+            <div className="text-sm text-white/60">Уншиж байна...</div>
+          ) : groups.length === 0 ? (
+            <div className="text-sm text-white/60">
+              Энэ дугаарт бүртгэлтэй код олдсонгүй.
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="text-white/60 text-xs">Код</div>
-              <div className="text-white font-extrabold text-lg">{totalTickets || 0}</div>
-            </div>
-          </div>
-
-          {/* content */}
-          <div className="mt-4 space-y-3">
-            {/* If API returned purchases */}
-            {purchases.length > 0 ? (
-              purchases.map((p, idx) => {
-                const codes: string[] =
-                  (Array.isArray(p?.tickets) && p.tickets.map((t: any) => t?.code).filter(Boolean)) ||
-                  (Array.isArray(p?.codes) && p.codes.filter(Boolean)) ||
-                  [];
-
-                return (
-                  <div key={p?.id || idx} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <div className="text-white/80 text-sm font-bold">
-                        Худалдан авалт #{idx + 1} {p?.createdAt ? <span className="text-white/50 font-normal">· {fmtDate(p.createdAt)}</span> : null}
-                      </div>
-
-                      {/* paid/overpay */}
-                      <div className="text-xs text-white/70">
-                        {typeof p?.paidAmount === "number" ? (
-                          <>
-                            Төлсөн: <b>{p.paidAmount}</b>
-                            {typeof p?.overpayDiff === "number" && p.overpayDiff > 0 ? (
-                              <>
-                                {" "}
-                                · Илүү: <b className="text-amber-200">{p.overpayDiff}</b>
-                              </>
-                            ) : null}
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {/* codes */}
-                    {codes.length > 0 ? (
-                      <div className="mt-3 rounded-xl bg-black/40 border border-white/10 p-3">
-                        <div className="text-xs text-white/60 mb-2">Таны сугалааны код</div>
-                        <div className="text-sm text-white font-semibold break-words leading-relaxed">
-                          {codes.join(", ")}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-3 text-xs text-white/60">Код олдсонгүй</div>
-                    )}
+          ) : (
+            <div className="space-y-4">
+              {groups.map((g, idx) => (
+                <div
+                  key={`${g.raffleId}-${idx}`}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="text-white font-extrabold break-words">
+                    {g.raffleTitle || "Сугалаа"}
                   </div>
-                );
-              })
-            ) : directCodes.length > 0 ? (
-              // If API returned direct codes array
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="text-xs text-white/60 mb-2">Таны сугалааны код</div>
-                <div className="text-sm text-white font-semibold break-words leading-relaxed">
-                  {directCodes.join(", ")}
+
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/60">
+                    <div>
+                      Огноо: <b className="text-white/80">{fmt(g.purchasedAt)}</b>
+                    </div>
+                    <div>
+                      Дүн: <b className="text-emerald-300">{money(g.amount)}</b>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-xs text-white/60">
+                    Үүссэн код: <b className="text-emerald-300">{g.codes?.length || 0}</b>
+                  </div>
+
+                  {/* codes grid (wrap + responsive) */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(g.codes || []).map((c) => (
+                      <span
+                        key={c}
+                        className="inline-flex items-center justify-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-extrabold text-emerald-200"
+                      >
+                        {codeLabel(c)}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                Код олдсонгүй. Утасны дугаараа зөв оруулсан эсэхээ шалгана уу.
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {/* spacer for sticky footer */}
-          <div className="h-16" />
-        </div>
-
-        {/* footer (always visible on small phones) */}
-        <div
-          className="sticky bottom-0 z-10 border-t border-white/10 bg-black/70 backdrop-blur p-3"
-          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}
-        >
-          <button
-            onClick={onClose}
-            className="w-full rounded-xl px-5 py-3 font-extrabold bg-amber-300 text-black hover:bg-amber-200 transition"
-          >
-            Хаах
-          </button>
+          {/* bottom safe space for mobile keyboards */}
+          <div className="h-24" />
         </div>
       </div>
     </div>

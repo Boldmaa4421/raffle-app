@@ -146,7 +146,7 @@ export default function RaffleCheckButton({
                 {data?.ok && (
                   <div className="mt-5">
                     <div className="text-sm text-white/80">
-                      Утас: <b className="text-white">{data.phone}</b> · Purchase:{" "}
+                      Утас: <b className="text-white">{data.phone}</b> · Худалдан авалт:{" "}
                       <b className="text-white">{data.purchases}</b> · Код:{" "}
                       <b className="text-emerald-300">{data.codes}</b>
                     </div>
