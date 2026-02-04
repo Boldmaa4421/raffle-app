@@ -36,35 +36,84 @@ function normalizeCell(raw: any) {
 }
 
 // Excel serial-ийг LOCAL date-р үүсгэнэ
+// Excel serial-ийг "яг тэр өдөр"-өөр нь DB-д оруулахын тулд
+// date-only утгуудыг 12:00 цагтай болгож хадгална (timezone-оос болж +/-1 өдөр болохоос хамгаална)
 function parseDate(raw: any): Date | null {
   if (!raw) return null;
 
-  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
+  // Date object
+  if (raw instanceof Date) {
+    if (isNaN(raw.getTime())) return null;
 
+    // хэрвээ цаг нь яг 00:00:00 бол "date-only" гэж үзээд 12:00 болгоно
+    if (
+      raw.getHours() === 0 &&
+      raw.getMinutes() === 0 &&
+      raw.getSeconds() === 0 &&
+      raw.getMilliseconds() === 0
+    ) {
+      const d = new Date(raw);
+      d.setHours(12, 0, 0, 0);
+      return d;
+    }
+
+    return raw;
+  }
+
+  // Excel serial number
   if (typeof raw === "number") {
     const dc = XLSX.SSF.parse_date_code(raw);
     if (!dc) return null;
-    const d = new Date(
-      dc.y,
-      dc.m - 1,
-      dc.d,
-      dc.H || 0,
-      dc.M || 0,
-      Math.floor(dc.S || 0)
-    );
-    if (isNaN(d.getTime())) return null;
-    const y = d.getFullYear();
+
+    const y = dc.y;
     if (y < 2000 || y > 2100) return null;
+
+    // цаг байхгүй бол 12:00 гэж үзнэ
+    const hasTime = (dc.H || 0) + (dc.M || 0) + (dc.S || 0) > 0;
+    const hh = hasTime ? (dc.H || 0) : 12;
+    const mm = hasTime ? (dc.M || 0) : 0;
+    const ss = hasTime ? Math.floor(dc.S || 0) : 0;
+
+    const d = new Date(y, dc.m - 1, dc.d, hh, mm, ss, 0);
+    if (isNaN(d.getTime())) return null;
     return d;
   }
 
+  // string
   if (typeof raw === "string") {
     const s = raw.trim();
     if (!s) return null;
+
+    // "YYYY-MM-DD" (эсвэл "YYYY/MM/DD") мэт date-only форматыг барьж аваад 12:00 болгоно
+    const m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (m) {
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const dd = Number(m[3]);
+      if (y < 2000 || y > 2100) return null;
+
+      const d = new Date(y, mo - 1, dd, 12, 0, 0, 0);
+      if (isNaN(d.getTime())) return null;
+      return d;
+    }
+
+    // бусад string — JS Date parse
     const d = new Date(s);
     if (isNaN(d.getTime())) return null;
+
     const y = d.getFullYear();
     if (y < 2000 || y > 2100) return null;
+
+    // хэрвээ parse-дахад 00:00 болж орж ирвэл 12:00 болгоно
+    if (
+      d.getHours() === 0 &&
+      d.getMinutes() === 0 &&
+      d.getSeconds() === 0 &&
+      d.getMilliseconds() === 0
+    ) {
+      d.setHours(12, 0, 0, 0);
+    }
+
     return d;
   }
 
@@ -114,75 +163,37 @@ function parsePhone(raw: any): {
   const s = normalizeCell(raw);
 
   if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
-  if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "тоогүй" };
 
-  // 1) +E164 хаана ч байж болно (+8210..., +976..., +86...)
-  const plusMatches = s.match(/\+\d{8,15}/g) ?? [];
-  if (plusMatches.length > 0) {
-   const cand = plusMatches[0];
-if (cand && /^\+\d{8,15}$/.test(cand)) {
-  return { ok: true, phoneE164: cand, phoneRaw: s };
-}
+  // цифр огт байхгүй = дан текст
+  if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "дан текст" };
 
+  // space / - / бусад тэмдэгтүүдийг арилгаад зөвхөн цифр үлдээнэ
+  let digits = s.replace(/\D/g, "");
+
+  // "00" префикс байвал авч хаяна (ж: 0044..., 001...)
+  digits = digits.replace(/^00+/, "");
+
+  // 8-аас бага бол утас биш
+  if (digits.length < 8) {
+    return { ok: false, phoneRaw: s, reason: "8-аас бага тоо" };
   }
 
-  // 2) 00... олон улсын формат: 00XXXXXXXX -> +XXXXXXXX
-  const m00 = s.match(/00\d{8,15}/);
-  if (m00 && m00[0]) {
-    const digits = m00[0].slice(2);
-    const e164 = `+${digits}`;
-    if (/^\+\d{8,15}$/.test(e164)) {
-      return { ok: true, phoneE164: e164, phoneRaw: s };
-    }
-  }
-
-  // 3) Бүх цифрийг нийлүүлээд шалгана (space, -, текст арилна)
-  const digitsOnly = s.replace(/\D/g, "");
-
-  // 3a) Монгол 8 оронтой
-  if (/^\d{8}$/.test(digitsOnly)) {
-    const e = normalizePhoneE164(digitsOnly);
+  // ✅ Монгол 8 оронтой
+  if (/^\d{8}$/.test(digits)) {
+    const e = normalizePhoneE164(digits);
     if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+    return { ok: false, phoneRaw: s, reason: "монгол дугаар буруу" };
   }
 
-  // 3b) Монгол улсын кодтой 976XXXXXXXX
-  if (/^976\d{8}$/.test(digitsOnly)) {
-    return { ok: true, phoneE164: `+${digitsOnly}`, phoneRaw: s };
+  // ✅ 976 + 8 digits (11)
+  if (/^976\d{8}$/.test(digits)) {
+    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
   }
 
-  // 3c) Ерөнхий гадаад дугаар (зүгээр цифр) — 11-15 оронтой бол + болгож зөвшөөрнө
-  // (банк/данс ялгахгүй гэснээр энэ их өргөн болно)
- // 3c) Ерөнхий гадаад дугаар (зүгээр цифр)
-// 9-15 оронтой бол + болгож зөвшөөрнө (0-ээр эхэлсэн ч зөвшөөрнө: 040... -> +040...)
-if (/^\d{9,15}$/.test(digitsOnly)) {
-  return { ok: true, phoneE164: `+${digitsOnly}`, phoneRaw: s };
-}
-
-  // 4) Fallback: нүд дотор олон тоо байвал эхний боломжит дугаарыг сонгоно
-  const chunks = s.match(/\d+/g) ?? [];
-
-  // эхлээд 8 оронтой монгол chunk хайна
-  for (const c of chunks) {
-    if (c.length === 8) {
-      const e = normalizePhoneE164(c);
-      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-    }
+  // ✅ Гадаад/урт дугаарууд: 8-15 цифрийг зөвшөөрнө (user хүсэлтээр)
+  if (digits.length >= 8 && digits.length <= 15) {
+    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
   }
-
-  // дараа нь 976XXXXXXXX хайна
-  for (const c of chunks) {
-    if (c.length === 11 && /^976\d{8}$/.test(c)) {
-      return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
-    }
-  }
-
-  // хамгийн сүүлд 11-15 оронтой chunk-ийг гадаад гэж үзнэ
- for (const c of chunks) {
-  if (c.length >= 9 && c.length <= 15) {
-    return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
-  }
-}
-
 
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
 }
