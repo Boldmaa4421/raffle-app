@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import TicketPopup from "@/components/TicketPopup";
 
 type Props = {
@@ -11,13 +11,22 @@ type Props = {
 export default function RaffleLookupButton({ raffleId, raffleTitle }: Props) {
   const [open, setOpen] = useState(false);
 
-  // popup state
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState("");
 
   const title = useMemo(() => raffleTitle ?? "Сугалаа", [raffleTitle]);
+
+  // ✅ Popup нээгдэхэд body scroll-ыг унтраана (Messenger/iPhone дээр их тустай)
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   async function onSearch() {
     const p = phone.trim();
@@ -49,13 +58,10 @@ export default function RaffleLookupButton({ raffleId, raffleTitle }: Props) {
     setOpen(false);
     setError("");
     setData(null);
-    // phone-оо хадгалж болно (хэрэггүй бол доорхи мөрийг нээ)
-    // setPhone("");
   }
 
   return (
     <div className="w-full">
-      {/* 카드 дээрх товч */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -65,37 +71,37 @@ export default function RaffleLookupButton({ raffleId, raffleTitle }: Props) {
         Код шалгах
       </button>
 
-      {/* POPUP */}
       {open && (
         <div
-          className="fixed inset-0 z-[9999] flex items-start justify-center p-3 sm:p-5"
+          className="fixed inset-0 z-[9999]"
           style={{
-            paddingTop: "max(env(safe-area-inset-top), 12px)",
-            paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
+            paddingTop: "max(env(safe-area-inset-top), 10px)",
+            paddingBottom: "max(env(safe-area-inset-bottom), 10px)",
           }}
         >
-          {/* Backdrop */}
+          {/* ✅ backdrop (арын дэвсгэрийг илүү тод ялгаруулна) */}
           <button
             aria-label="Close"
             onClick={closeAll}
-            className="absolute inset-0 bg-black/75"
+            className="absolute inset-0 bg-black/80"
             style={{ WebkitTapHighlightColor: "transparent" }}
           />
 
-          {/* Modal card */}
+          {/* ✅ Fullscreen-safe modal: жижиг утсанд ч багтана */}
           <div
             className="
-              relative w-[94vw] max-w-xl
+              absolute left-3 right-3 top-3 bottom-3
               rounded-2xl overflow-hidden
+              bg-neutral-950/95
               border border-white/20
-              bg-neutral-950/90
-              backdrop-blur-xl shadow-2xl
+              shadow-[0_20px_60px_rgba(0,0,0,0.85)]
               ring-1 ring-white/10
-              max-h-[86dvh] flex flex-col
+              flex flex-col
+              overflow-x-hidden
             "
           >
             {/* Header */}
-            <div className="sticky top-0 z-10 p-4 border-b border-white/10 bg-neutral-950/95">
+            <div className="shrink-0 p-4 border-b border-white/10 bg-neutral-950/95">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-amber-200/90 font-extrabold truncate">
@@ -124,25 +130,31 @@ export default function RaffleLookupButton({ raffleId, raffleTitle }: Props) {
             </div>
 
             {/* Body (scroll) */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-4">
-              <TicketPopup open={true} onClose={() => setData(null)} phone={phone.trim()} data={data} />
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 overflow-x-hidden">
+              <TicketPopup
+                open={true}
+                onClose={() => setData(null)}
+                phone={phone.trim()}
+                data={data}
+              />
               <div className="h-16" />
             </div>
 
-            {/* Footer (sticky input+button) */}
-            <div className="sticky bottom-0 z-10 p-4 border-t border-white/10 bg-neutral-950/95">
-              <div className="flex flex-col sm:flex-row gap-2">
+            {/* Footer (input+button) — ✅ жижиг утсанд заавал доош stack хийнэ */}
+            <div className="shrink-0 p-4 border-t border-white/10 bg-neutral-950/95">
+              <div className="flex flex-col gap-2">
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Утасны дугаар"
                   inputMode="tel"
-                  className="w-full flex-1 rounded-xl px-4 py-3 bg-white/5 border border-white/10 outline-none text-[16px]"
+                  className="w-full rounded-xl px-4 py-3 bg-white/5 border border-white/10 outline-none text-[16px]"
                 />
+
                 <button
                   onClick={onSearch}
                   disabled={loading || !phone.trim()}
-                  className="w-full sm:w-auto rounded-xl px-5 py-3 font-extrabold
+                  className="w-full rounded-xl px-5 py-3 font-extrabold
                     bg-emerald-400 text-black hover:bg-emerald-300 transition disabled:opacity-60"
                 >
                   {loading ? "..." : "Хайх"}

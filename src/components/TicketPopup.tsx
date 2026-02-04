@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 
 type Group = {
   raffleId: string;
@@ -39,10 +39,11 @@ export default function TicketPopup({
   const totalCodes = data?.codes ?? 0;
 
   return (
-    <div className="relative">
-      <div className="text-sm text-white/80">
+    <div className="relative w-full max-w-full overflow-x-hidden">
+      {/* summary */}
+      <div className="text-sm text-white/80 break-words">
         <span className="font-semibold">Утас:</span>{" "}
-        <span className="font-extrabold">{data?.phone || phone}</span>
+        <span className="font-extrabold break-all">{data?.phone || phone}</span>
         <span className="text-white/50"> · </span>
         <span className="font-semibold">Худалдан авалт:</span>{" "}
         <span className="font-extrabold">{totalPurchases}</span>
@@ -60,7 +61,7 @@ export default function TicketPopup({
           {groups.map((g, idx) => (
             <div
               key={`${g.raffleId}-${idx}`}
-              className="rounded-2xl border border-white/10 bg-white/5 p-4"
+              className="rounded-2xl border border-white/10 bg-white/5 p-4 w-full max-w-full overflow-hidden"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -71,20 +72,21 @@ export default function TicketPopup({
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <div className="text-emerald-300 font-extrabold">
+                  <div className="text-emerald-300 font-extrabold whitespace-nowrap">
                     {Intl.NumberFormat("mn-MN").format(g.amount)}₮
                   </div>
-                  <div className="text-xs text-white/60">
+                  <div className="text-xs text-white/60 whitespace-nowrap">
                     Код: <span className="font-extrabold text-white">{g.codes.length}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              {/* ✅ codes: wrap + overflow-x hide */}
+              <div className="mt-3 flex flex-wrap gap-2 max-w-full overflow-x-hidden">
                 {g.codes.map((c) => (
                   <span
                     key={c}
-                    className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-200 font-extrabold"
+                    className="max-w-full px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-200 font-extrabold"
                   >
                     {codeLabel(c)}
                   </span>
