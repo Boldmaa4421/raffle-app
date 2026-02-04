@@ -152,9 +152,11 @@ if (cand && /^\+\d{8,15}$/.test(cand)) {
 
   // 3c) Ерөнхий гадаад дугаар (зүгээр цифр) — 11-15 оронтой бол + болгож зөвшөөрнө
   // (банк/данс ялгахгүй гэснээр энэ их өргөн болно)
-  if (/^\d{11,15}$/.test(digitsOnly)) {
-    return { ok: true, phoneE164: `+${digitsOnly}`, phoneRaw: s };
-  }
+ // 3c) Ерөнхий гадаад дугаар (зүгээр цифр)
+// 9-15 оронтой бол + болгож зөвшөөрнө (0-ээр эхэлсэн ч зөвшөөрнө: 040... -> +040...)
+if (/^\d{9,15}$/.test(digitsOnly)) {
+  return { ok: true, phoneE164: `+${digitsOnly}`, phoneRaw: s };
+}
 
   // 4) Fallback: нүд дотор олон тоо байвал эхний боломжит дугаарыг сонгоно
   const chunks = s.match(/\d+/g) ?? [];
@@ -175,11 +177,12 @@ if (cand && /^\+\d{8,15}$/.test(cand)) {
   }
 
   // хамгийн сүүлд 11-15 оронтой chunk-ийг гадаад гэж үзнэ
-  for (const c of chunks) {
-    if (c.length >= 11 && c.length <= 15) {
-      return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
-    }
+ for (const c of chunks) {
+  if (c.length >= 9 && c.length <= 15) {
+    return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
   }
+}
+
 
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
 }
