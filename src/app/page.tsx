@@ -102,19 +102,18 @@ export default async function HomePage() {
             </ul>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-            <div className="text-lg font-extrabold text-amber-200">Сугалаа буцааж болох уу?</div>
-            <div className="mt-3 space-y-3 text-white/80 leading-relaxed">
-              <p>
-                <b className="text-white">Сугалаа буцааж болох уу?</b> — Боломжгүй. Таны авсан сугалаа
-                бүртгэгдсэн тохиолдолд буцаах боломжгүй.
-              </p>
-              <p>
-                <b className="text-white">Сугалаа шилжүүлж болох уу?</b> — Боломжгүй. Сугалаа тухайн
-                дугаартай шууд холбогдоно.
-              </p>
-            </div>
-          </div>
+        <img
+  src="/images/Blue and White Modern Message Conversation Facebook Post.png"
+  alt="Сугалаа буцаах мэдээлэл"
+  className="
+    w-full
+    max-w-md
+    rounded-2xl
+    shadow-2xl
+    border border-white/10
+  "
+/>
+
         </div>
 
         {/* RAFFLES LIST */}
