@@ -135,7 +135,7 @@ export default function HomeLookup() {
             </div>
 
             {/* body scroll */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-4">
+            <div className="max-h-[75dvh] overflow-y-auto p-5 [webkit-overflow-scrolling:touch]">
               {/* ✅ TicketPopup зөвхөн 4 prop */}
               <TicketPopup
                 open={true}

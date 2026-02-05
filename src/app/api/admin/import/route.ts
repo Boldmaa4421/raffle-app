@@ -179,95 +179,145 @@ function parsePhone(raw: any): {
 
   if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
 
-  // цифр огт байхгүй → дан текст
+  // цифр огт байхгүй => дан текст
   if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "дан текст" };
 
-  const hasLetters = /[A-Za-zА-Яа-яӨөҮүЁё]/.test(s);
-
-  // ❌ огноо/цаг мөр бол утас гэж бүү оролд
+  // огноо/цаг мөр үү? (foreign-г эндээс бүү авах)
   const looksLikeDateTime =
     /\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/.test(s) ||
     /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s);
-  if (looksLikeDateTime) return { ok: false, phoneRaw: s, reason: "огноо/цаг" };
 
-  // Зөвхөн цифрүүдийг авна
-  const digitsAll = s.replace(/\D/g, "");
-
-  // ❌ Текст + 1–7 цифр → утас биш (ж: "ээжээс нь 2", "3хүүдээ")
-  if (hasLetters && digitsAll.length > 0 && digitsAll.length < 8) {
-    return { ok: false, phoneRaw: s, reason: "текст + богино тоо" };
-  }
-
-  /* -------------------------------------------------
-   * 1) MN 8-digit (тасархай байсан ч) — ЭХНИЙ олдсоныг авна
-   *    Ямар ч тэмдэг/зай дундуур нь байж болно
-   *    Нэг мөрөнд олон утас байвал хамгийн эхний MN-г авна
-   * ------------------------------------------------- */
-  // digitsAll-оос гүйлгэж 8 оронтой цонхоор хайна
-  // (9965-5487 -> digitsAll="99655487")
-  for (let i = 0; i + 8 <= digitsAll.length; i++) {
-    const sub = digitsAll.slice(i, i + 8);
-
-    // MN утас: 8 цифр, ихэнхдээ 5-9-өөр эхэлдэг (2/3 эхэлдэг тусгай тохиолдол байвал хэлээрэй)
-    if (/^[5-9]\d{7}$/.test(sub)) {
-      const e = normalizePhoneE164(sub);
-      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-    }
-  }
-
-  /* -------------------------------------------------
-   * 2) +E164 (space/dash зөвшөөрнө) — олон байвал эхнийх
-   * ------------------------------------------------- */
-  const plusMatches = s.match(/\+\s*[\d\s-]{8,20}/g) ?? [];
-const cand = plusMatches[0];
-
+  // -------------------------------------------------
+  // 1) +E164 (space/dash/ямар ч тэмдэг зөвшөөрнө)
+  //    Ж: +7 900-658-2795, +86-138 0000 0000
+  // -------------------------------------------------
+  const plusMatches = s.match(/\+\s*[^\d]*[\d\D]{6,30}/g) ?? [];
+const cand = plusMatches.at(0);
 if (cand) {
-  const digits = cand.replace(/[^\d]/g, ""); // +, space, dash арилгана
+  const digits = cand.replace(/[^\d]/g, ""); // зөвхөн цифр
   if (/^\d{8,15}$/.test(digits)) {
     return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
   }
 }
 
-  /* -------------------------------------------------
-   * 3) 00E164 (space/dash зөвшөөрнө) — олон байвал эхнийх
-   * ------------------------------------------------- */
-  const m00 = s.match(/00[\d\s\-\(\)]{8,25}/);
+  // -------------------------------------------------
+  // 2) 00E164 (0086..., 007..., 0082... гэх мэт) + separators
+  // -------------------------------------------------
+  const m00 = s.match(/00[\d][\d\D]{6,30}/);
   if (m00?.[0]) {
-    const digits = m00[0].replace(/[^\d]/g, "").slice(2);
-    if (/^\d{8,15}$/.test(digits)) {
-      return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
+    const digitsAll = m00[0].replace(/[^\d]/g, "");
+    // digitsAll нь 00XXXX... хэлбэрээр гарна
+    if (digitsAll.startsWith("00")) {
+      const digits = digitsAll.slice(2);
+      if (/^\d{8,15}$/.test(digits)) {
+        return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
+      }
     }
   }
 
-  /* -------------------------------------------------
-   * 4) 01… эхэлсэн гадаад (digitsAll бүхэлдээ 01...) — зөвшөөрнө
-   * ------------------------------------------------- */
-  if (/^01\d{7,14}$/.test(digitsAll)) {
-    return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
-  }
-
-  /* -------------------------------------------------
-   * 5) Foreign: 9–15 цифр (тасархай байсан ч) — ЭХНИЙ олдсоныг авна
-   *    ⚠️ MN байхгүй үед л энд ирнэ
-   * ------------------------------------------------- */
-  // эхлээд chunk-аас 9–15 олдвол эхнийх
+  // -------------------------------------------------
+  // 3) Digit chunks (тасархайг нийлүүлж барина)
+  //    Ж: 881 514 39 => 88151439
+  //        9965-5487 => 99655487
+  //        88 526478 => 88526478
+  // -------------------------------------------------
   const chunks = s.match(/\d+/g) ?? [];
-  for (const c of chunks) {
-    if (/^\d{9,15}$/.test(c)) return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
+
+  // 3a) Хэрвээ огноо/цаг мөр бол foreign-г бүр хаана, зөвхөн MN 8-digit хайна
+  if (looksLikeDateTime) {
+    // MN 8-digit (эхний таарсныг авна)
+    for (let i = 0; i < chunks.length; i++) {
+      let acc = "";
+      for (let j = i; j < chunks.length && acc.length <= 8; j++) {
+        acc += chunks[j];
+        if (acc.length === 8 && /^[5-9]\d{7}$/.test(acc)) {
+          const e = normalizePhoneE164(acc);
+          if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+        }
+        if (acc.length > 8) break;
+      }
+    }
+    return { ok: false, phoneRaw: s, reason: "огноо/цаг мөр" };
   }
 
-  // тасархай foreign нийлүүлээд 9–15 болсон даруйд авна
+  // 3b) MN hint байвал (MN:, mn, утас, дугаар гэх мэт) — 8 цифрийг илүү идэвхтэй авна
+  const hasMnHint = /(^|\b)(mn|утас|дугаар|phone)\b/i.test(s);
+
+  // --- MN 8-digit builder: chunks-уудыг нийлүүлээд 8 болсон даруйд шалгаад буцаана
+  const tryFindMN8 = () => {
+    for (let i = 0; i < chunks.length; i++) {
+      let acc = "";
+      for (let j = i; j < chunks.length && acc.length <= 8; j++) {
+        acc += chunks[j];
+        if (acc.length === 8) {
+          // Монгол 8 оронтой ихэнхдээ 5-9 эхэлдэг гэж үзэж шүүнэ
+          if (/^[5-9]\d{7}$/.test(acc)) {
+            const e = normalizePhoneE164(acc);
+            if (e) return e;
+          }
+          break;
+        }
+        if (acc.length > 8) break;
+      }
+    }
+    return null;
+  };
+
+  // hint байвал эхэлж MN-г оролд
+  if (hasMnHint) {
+    const e = tryFindMN8();
+    if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+  }
+
+  // hint байхгүй ч гэсэн ерөнхий MN 8-digit хайлт (эхний таарсныг авна)
+  {
+    const e = tryFindMN8();
+    if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+  }
+
+  // -------------------------------------------------
+  // 4) Foreign: 9..15 digits (эхний олдсоныг авна)
+  //    + ТУСГАЙ: 01-ээр эхэлсэн бол foreign гэж үзээд зөвшөөрнө
+  // -------------------------------------------------
+  // 4a) шууд 9–15 цифрийн chunk
+  for (const c of chunks) {
+    if (/^\d{9,15}$/.test(c)) {
+      // 976XXXXXXXX (11) бол Монголын E164 гэж үзнэ
+      if (/^976\d{8}$/.test(c)) return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
+
+      // 01... эхэлсэн бол foreign зөвшөөрнө
+      if (c.startsWith("01")) return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
+
+      // бусад foreign
+      return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
+    }
+  }
+
+  // 4b) тасархай foreign нийлүүлэлт (chunk-уудыг дарааллаар нь нийлүүлээд 9..15 болгоно)
   for (let i = 0; i < chunks.length; i++) {
     let acc = "";
     for (let j = i; j < chunks.length && acc.length <= 15; j++) {
       acc += chunks[j];
       if (/^\d{9,15}$/.test(acc)) {
+        if (/^976\d{8}$/.test(acc)) return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
+        if (acc.startsWith("01")) return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
         return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
       }
       if (acc.length > 15) break;
     }
   }
 
+  // -------------------------------------------------
+  // 5) Fallback: мөрөнд ганцхан дугаар байвал (digitsAll 9..15 эсвэл 01... )
+  // -------------------------------------------------
+  const digitsAll = s.replace(/\D/g, "");
+  if (/^\d{9,15}$/.test(digitsAll)) {
+    if (digitsAll.startsWith("01")) return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
+    if (/^976\d{8}$/.test(digitsAll)) return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
+    return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
+  }
+
+  // ⚠️ 8-аас бага цифртэй текстүүд (Батчимэгээс 3хүүдээ, ээжээс нь 2) эндээр унана
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
 }
 
@@ -375,18 +425,18 @@ export async function POST(req: Request) {
 
       const parsed = parsePhone(phoneCell);
 
-      if (!parsed.ok || !parsed.phoneE164) {
-        skipped.push({
-          row: excelRow,
-          reason: parsed.reason ?? "утас олдсонгүй",
-          phoneRaw: parsed.phoneRaw,
-          paid,
-          ticketPrice,
-          raw,
-        });
-        current = null;
-        continue;
-      }
+if (!parsed.ok || !parsed.phoneE164) {
+  skipped.push({
+    row: excelRow,
+    reason: parsed.reason ?? "утас олдсонгүй",
+    phoneRaw: parsed.phoneRaw,
+    paid,
+    ticketPrice,
+  });
+  current = null;
+  continue;
+}
+
 
       // ✅ CASE 1: утас олдсон мөр
       if (parsed.ok && parsed.phoneE164) {
