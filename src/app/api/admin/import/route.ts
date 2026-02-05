@@ -196,6 +196,11 @@ function parsePhone(raw: any): {
   );
   if (mnLoose) {
     const eight = mnLoose.slice(1).join(""); // 8 цифрийг нийлүүлнэ
+     // ✅ Монгол утас ихэнхдээ 5-9-өөр эхэлдэг (11000000 шигийг шууд унагаана)
+  if (!/^[5-9]\d{7}$/.test(eight)) {
+    return { ok: false, phoneRaw: s, reason: "MN утасны prefix биш" };
+  }
+
     const e = normalizePhoneE164(eight);
     if (e) return { ok: true, phoneE164: e, phoneRaw: s };
   }
@@ -304,6 +309,18 @@ export async function POST(req: Request) {
       const paid = toInt((raw as any)?.amount);
       const phoneCell = (raw as any)?.phone;
       const phoneText = normalizeCell(phoneCell);
+// ⛔ данс/банк/тайлбар маягийн мөр бол утас гэж бүү оролд (toхиргоо)
+if (looksLikeBankAccount(phoneText)) {
+  skipped.push({
+    row: excelRow,
+    reason: "данс/банк/тайлбар мөр",
+    phoneRaw: phoneText,
+    paid,
+    ticketPrice,
+  });
+  current = null;
+  continue;
+}
 
       if (purchasedAt) lastDate = purchasedAt;
       const effectiveDate = purchasedAt ?? lastDate;

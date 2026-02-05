@@ -106,7 +106,7 @@ export default async function HomePage() {
   {/* Зураг: бүтнээрээ харагдана */}
   <div className="rounded-2xl border border-white/10 overflow-hidden bg-white/5">
   <img
-    src="/images/Blue and White Modern Message Conversation Facebook Post.png"
+    src="public/Blue and White Modern Message Conversation Facebook Post.png"
     alt="Сугалаа буцаах мэдээлэл"
     className="
       w-full

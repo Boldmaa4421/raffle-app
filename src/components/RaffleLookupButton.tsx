@@ -1,26 +1,24 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import React from "react";
 
 type Props = {
   raffleId: string;
   raffleTitle?: string | null;
-  imageUrl?: string | null;
 };
 
-export default function RaffleLookupButton({ raffleId, raffleTitle, imageUrl }: Props) {
-  const qs = new URLSearchParams();
-  qs.set("raffleId", raffleId);
-  if (raffleTitle) qs.set("title", raffleTitle);
-  if (imageUrl) qs.set("img", imageUrl);
+export default function RaffleLookupButton({ raffleId }: Props) {
+  const router = useRouter();
 
   return (
-    <a
-      href={`/check?${qs.toString()}`}
+    <button
+      type="button"
+      onClick={() => router.push(`/check?raffleId=${encodeURIComponent(raffleId)}`)}
       className="w-full text-center rounded-xl px-3 py-2 font-extrabold
-        border border-white/10 bg-white/5 hover:bg-white/10 transition block"
+        border border-white/10 bg-white/5 hover:bg-white/10 transition"
     >
       Код шалгах
-    </a>
+    </button>
   );
 }
