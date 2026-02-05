@@ -185,62 +185,40 @@ function parsePhone(raw: any): {
     }
   }
 
-  // 3) Бусад бүх тоонууд: space/-, таслал г.м байсан ч бүгдийг digits болгоод шалгана
-  //    Ж: "8888 4561", "9968-7894", "call 0405569616 pls"
-  const digitsAll = s.replace(/\D/g, "");
-
-  // digitsAll 8-аас бага бол => утас биш => SKIP
-  if (digitsAll.length < 8) {
-    return { ok: false, phoneRaw: s, reason: "утас биш (<8 цифр)" };
-  }
-
-  // 3a) Монгол 8 оронтой яг байвал
-  if (/^\d{8}$/.test(digitsAll)) {
-    const e = normalizePhoneE164(digitsAll);
+  // ✅ 3) Монгол 8 оронтой дугаарыг "текст дотроос" хамгийн түрүүнд сугална
+  // Ж: "88606221 ХААНААС: 150000 ...", "99643334 ; 95820309", "+976 88606221"
+  // (Зөвхөн эхний олдсоныг авна)
+  const mnMatch = s.match(/(?:\+?976)?\s*([0-9]{8})/);
+  if (mnMatch?.[1]) {
+    const e = normalizePhoneE164(mnMatch[1]);
     if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+    // normalize fail бол үргэлжлүүлээд өөр тоонууд хайя
   }
 
-  // 3b) 976XXXXXXXX (11 оронтой) байвал
-  if (/^976\d{8}$/.test(digitsAll)) {
-    return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
-  }
-
-  // 3c) Текст дотор олон дугаар байж болно:
-  // - эхлээд 8 оронтой MN chunk-уудыг түрүүлж хайна
-  // - байхгүй бол 8-15 оронтой foreign chunk-оос эхнийхийг авна
+  // 4) Хэрвээ 8 оронтой MN олдохгүй бол:
+  // текст доторх бүх "digit chunk"-уудыг авч, хамгийн боломжит утсыг сонгоно
   const chunks = s.match(/\d+/g) ?? [];
 
-  // MN 8-digit priority
-  for (const c of chunks) {
-    const d = c.replace(/\D/g, "");
-    if (/^\d{8}$/.test(d)) {
-      const e = normalizePhoneE164(d);
-      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-    }
-  }
-
-  // Foreign: 8-15 digits
+  // 4a) Foreign: 8-15 digits chunk-оос эхнийх
   for (const c of chunks) {
     const d = c.replace(/\D/g, "");
     if (/^\d{8,15}$/.test(d)) {
+      // 976XXXXXXXX (11) бол +976...
+      if (/^976\d{8}$/.test(d)) return { ok: true, phoneE164: `+${d}`, phoneRaw: s };
+
+      // 8 оронтой бол MN гэж оролдоод, чадвал MN, чадахгүй бол foreign болгож болохгүй (андуурал их гарна)
+      if (d.length === 8) {
+        const e = normalizePhoneE164(d);
+        if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+        continue;
+      }
+
       return { ok: true, phoneE164: `+${d}`, phoneRaw: s };
     }
   }
 
-  // Эцсийн fallback: digitsAll нь 8-15 байвал foreign гэж үзнэ
-  if (/^\d{8,15}$/.test(digitsAll)) {
-    // 8 оронтой бол дээр MN-д шалгагдсан байх ёстой, гэхдээ normalize fail болсон байж болно
-    if (digitsAll.length === 8) {
-      const e = normalizePhoneE164(digitsAll);
-      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-      return { ok: false, phoneRaw: s, reason: "8 оронтой боловч normalize fail" };
-    }
-    return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
-  }
-
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
 }
-
 
 
 type Group = {
@@ -329,9 +307,23 @@ export async function POST(req: Request) {
         current = null;
         continue;
       }
+const parsed = parsePhone(phoneCell);
 
-      const parsed = parsePhone(phoneCell);
+// ⛔ УТАС ОЛДООГҮЙ БОЛ — ШУУД SKIP
+if (!parsed.ok || !parsed.phoneE164) {
+  skipped.push({
+    row: excelRow,
+    reason: parsed.reason ?? "утас олдсонгүй",
+    phoneRaw: parsed.phoneRaw,
+    paid,
+    ticketPrice,
+  });
+  current = null;
+  continue; // 🔥 ЭНЭ Л ЧАМД ДУТААД БАЙСАН
+}
+console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
 
+      
       // ✅ CASE 1: утас олдсон мөр
       if (parsed.ok && parsed.phoneE164) {
         // ✅ paid=0/хоосон мөр бол purchase биш гэж үзээд оруулахгүй (bank export)
@@ -568,4 +560,5 @@ export async function POST(req: Request) {
     console.error(e);
     return NextResponse.json({ error: e?.message || "Серверийн алдаа" }, { status: 500 });
   }
+  
 }

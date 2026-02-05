@@ -86,35 +86,42 @@ export default async function HomePage() {
         </div>
 
         {/* INFO BOXES */}
-        <div className="mt-8 grid lg:grid-cols-2 gap-4">
-          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-            <div className="text-lg font-extrabold text-amber-200">Сугалааны мэдээлэл</div>
-            <ul className="mt-3 space-y-2 text-white/80">
-              <li className="flex gap-2">
-                <span className="text-amber-300">✓</span> Таныг азын тэнгэр ивээх болтугай
-              </li>
-              <li className="flex gap-2">
-                <span className="text-amber-300">✓</span> Гүйлгээний утга зөвхөн утасны дугаар бичнэ
-              </li>
-              <li className="flex gap-2">
-                <span className="text-amber-300">✓</span> Сугалаанд оролцох код таны утасны дугаарт SMS-ээр очно
-              </li>
-            </ul>
-          </div>
+       {/* INFO BOXES */}
+<div className="mt-8 grid gap-4 lg:grid-cols-2 items-start">
+  <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-5">
+    <div className="text-lg font-extrabold text-amber-200">Сугалааны мэдээлэл</div>
+    <ul className="mt-3 space-y-2 text-white/80">
+      <li className="flex gap-2">
+        <span className="text-amber-300">✓</span> Таныг азын тэнгэр ивээх болтугай
+      </li>
+      <li className="flex gap-2">
+        <span className="text-amber-300">✓</span> Гүйлгээний утга зөвхөн утасны дугаар бичнэ
+      </li>
+      <li className="flex gap-2">
+        <span className="text-amber-300">✓</span> Сугалаанд оролцох код таны утасны дугаарт SMS-ээр очно
+      </li>
+    </ul>
+  </div>
 
-        <img
-  src="/images/Blue and White Modern Message Conversation Facebook Post.png"
-  alt="Сугалаа буцаах мэдээлэл"
-  className="
-    w-full
-    max-w-md
-    rounded-2xl
-    shadow-2xl
-    border border-white/10
-  "
-/>
+  {/* Зураг: бүтнээрээ харагдана */}
+  <div className="rounded-2xl border border-white/10 bg-white/5 shadow-2xl overflow-hidden">
+    <img
+      src="/images/Blue and White Modern Message Conversation Facebook Post.png"
+      alt="Сугалаа буцаах мэдээлэл"
+      className="
+        w-full
+        h-[220px]        /* mobile */
+        sm:h-[260px]
+        md:h-[320px]
+        lg:h-[420px]     /* desktop */
+        object-contain
+      "
+    />
+  </div>
+</div>
 
-        </div>
+
+        
 
         {/* RAFFLES LIST */}
         <div className="mt-10">
