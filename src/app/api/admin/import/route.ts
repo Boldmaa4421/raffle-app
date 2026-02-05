@@ -203,11 +203,12 @@ if (cand) {
   // 2) 00... олон улсын формат (space/dash зөвшөөрнө) => +...
 const m00 = s.match(/00[\d\s-]{8,20}/);
 if (m00?.[0]) {
-  const digits = m00[0].replace(/[^\d]/g, "").slice(2); // remove leading 00
+  const digits = m00[0].replace(/[^\d]/g, "").slice(2);
   if (/^\d{8,15}$/.test(digits)) {
     return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
   }
 }
+
 
   if (m00?.[0]) {
     const digits = m00[0].slice(2); // remove leading 00
@@ -256,21 +257,31 @@ if (hasMnHint) {
    *    96 384404 → 96384404
    *    9500 2425 → 95002425
    * ------------------------------------------------- */
-  if (!looksLikeDateTime) {
-    for (let i = 0; i < chunks.length; i++) {
-      let acc = "";
-      for (let j = i; j < chunks.length && acc.length <= 15; j++) {
-        acc += chunks[j];
+ /* -------------------------------------------------
+ * 6) Foreign (chunks-аас сонгоно) — country code шаардахгүй
+ *  - огноо/цаг мөрийг looksLikeDateTime дээр блоклосон
+ *  - 9–15 цифр байвал foreign гэж зөвшөөрнө
+ * ------------------------------------------------- */
 
-        if (acc.length === 8 && /^[5-9]\d{7}$/.test(acc)) {
-          const e = normalizePhoneE164(acc);
-          if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-        }
-
-        if (acc.length > 15) break;
-      }
-    }
+// 6a) Шууд 9–15 цифрийн chunk байвал эхнийхийг авна
+for (const c of chunks) {
+  if (/^\d{9,15}$/.test(c)) {
+    return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
   }
+}
+
+// 6b) Тасархай foreign (ж: "7 900 658 2795", "86 138 0000 0000") — consecutive chunks нийлүүлнэ
+for (let i = 0; i < chunks.length; i++) {
+  let acc = "";
+  for (let j = i; j < chunks.length && acc.length <= 15; j++) {
+    acc += chunks[j];
+    if (/^\d{9,15}$/.test(acc)) {
+      return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
+    }
+    if (acc.length > 15) break;
+  }
+}
+
 
   /* -------------------------------------------------
    * 5) MN 8-digit chunk шууд
