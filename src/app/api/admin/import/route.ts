@@ -175,70 +175,122 @@ function parsePhone(raw: any): {
   phoneRaw: string;
   reason?: string;
 } {
-  const s = normalizeCell(raw);
+  const original = normalizeCell(raw);
 
-  if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
-  if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "дан текст" };
+  if (!original) return { ok: false, phoneRaw: "", reason: "хоосон" };
+  if (!/\d/.test(original)) return { ok: false, phoneRaw: original, reason: "дан текст" };
 
-  // Огноо/цагтай мөрийг бүхэлд нь болгоомжлоно (утас андуурахаас хамгаална)
-  const hasDateTimeHint =
-    /\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/.test(s) ||
-    /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s);
+  // 0) Огноо/цагийг урьдчилж цэвэрлээд андуурал багасгана
+  // ж: 2026-02-02 15:56:35, 2026/02/02, 15:56:35
+  let s = original
+    .replace(/\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?\b/g, " ")
+    .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  // ✅ Утас шиг кластер: 1 цифр + (зай/зураас/хаалт г.м) + цифр ... нийт 8–18 цифрийн "блок"
-  // - "+" эсвэл "00" эхлэлтэй байж болно
-  // - Текст дундах "150000 2" гэх мэт нь 8 хүрэхгүй бол огт баригдахгүй
-  const clusters =
-    s.match(/(?:\+|00)?\d(?:[\s\-()._/]*\d){7,17}/g) ?? [];
+  if (!/\d/.test(s)) return { ok: false, phoneRaw: original, reason: "огноо/цаг мөр" };
 
-  for (const cl of clusters) {
-    // огноо шиг кластерийг алгасна (2026-01-14 гэх мэт)
-    if (/\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/.test(cl)) continue;
-    if (/\d{1,2}:\d{2}/.test(cl)) continue;
+  // Helper: кандидатыг нэмэх (эхний олдсоныг л авах бодлоготой)
+  type Cand = { e164: string; idx: number; kind: "mn" | "intl" };
+  const cands: Cand[] = [];
 
-    const digits = cl.replace(/\D/g, "");
-    if (digits.length < 8) continue;
-
-    // 1) +E164
-    if (cl.trim().startsWith("+")) {
-      if (/^\d{8,15}$/.test(digits)) {
-        return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
-      }
-      continue;
-    }
-
-    // 2) 00E164
-    if (cl.trim().startsWith("00")) {
-      const d = digits.startsWith("00") ? digits.slice(2) : digits;
-      if (/^\d{8,15}$/.test(d)) {
-        return { ok: true, phoneE164: `+${d}`, phoneRaw: s };
-      }
-      continue;
-    }
-
-    // 3) Монгол 976XXXXXXXX
-    if (/^976\d{8}$/.test(digits)) {
-      return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
-    }
-
-    // 4) Монгол 8 оронтой (5-9-өөр эхэлсэн)
-    if (/^[5-9]\d{7}$/.test(digits)) {
+  const pushCand = (digits: string, idx: number, kind: "mn" | "intl") => {
+    if (kind === "mn") {
+      // MN: 8 цифр, ихэнхдээ 5-9-өөр эхэлнэ
+      if (!/^[5-9]\d{7}$/.test(digits)) return;
       const e = normalizePhoneE164(digits);
-      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-      continue;
+      if (!e) return;
+      cands.push({ e164: e, idx, kind });
+      return;
     }
 
-    // 5) Foreign 9–15 (01/04-өөр эхэлсэн ч зөвшөөрнө)
-    // ⚠️ огноо мөрөн дээр foreign-г ер нь алгасна
-    if (!hasDateTimeHint && /^\d{9,15}$/.test(digits)) {
-      return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
+    // intl:
+    //  - 01-ээр эхэлсэн бол "гадаад" гэж зөвшөөрнө (01xxxxxxxx...)
+    //  - эсвэл ердийн 9..15 цифр
+    if (/^01\d{7,14}$/.test(digits)) {
+      cands.push({ e164: `+${digits}`, idx, kind });
+      return;
+    }
+    if (/^\d{9,15}$/.test(digits)) {
+      cands.push({ e164: `+${digits}`, idx, kind });
+      return;
+    }
+  };
+
+  // 1) +E164 (space/dash/ямар ч тэмдэгтэй байсан цэвэрлээд авна)
+  //    ж: +7 900-658-2795, +86-138 0000 0000
+  const plusRe = /\+[\s\d\-()]{7,30}\d/g;
+  const plusMatch = plusRe.exec(s);
+  if (plusMatch?.[0]) {
+    const digits = plusMatch[0].replace(/\D/g, "");
+    if (/^\d{8,15}$/.test(digits)) {
+      return { ok: true, phoneE164: `+${digits}`, phoneRaw: original };
     }
   }
 
-  return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
+  // 2) 00E164 (0086..., 007..., 0082...) — separators зөвшөөрнө
+  const m00 = s.match(/00[\s\d\-()]{7,30}\d/);
+  if (m00?.[0]) {
+    const digitsAll = m00[0].replace(/\D/g, "");
+    // digitsAll = 00xxxxxxxx...
+    if (digitsAll.startsWith("00")) {
+      const digits = digitsAll.slice(2);
+      if (/^\d{8,15}$/.test(digits)) {
+        return { ok: true, phoneE164: `+${digits}`, phoneRaw: original };
+      }
+    }
+  }
+
+  // 3) Дугаар+separator-оор бүтсэн segment-үүдийг барина (үсэг орсон хэсгийг огт нийлүүлэхгүй)
+  //    Энэ нь "ХААНААС: 320000" гэх мэт мөнгө/тексттэй холилдсоныг буруу нийлүүлэхээс хамгаална.
+  //    Мөн "9965-5487", "88 526478", "881 514 39", "9074-5555" зэрэг орно.
+  const segRe = /(?:^|[^\w+])(\d[\d\s\-()]{6,40}\d)(?=$|[^\w])/g;
+  let seg: RegExpExecArray | null;
+  while ((seg = segRe.exec(s))) {
+    const segText = seg[1];
+    const idx = seg.index;
+
+    // segment доторх бүх цифрийг нийлүүлнэ
+    const digits = segText.replace(/\D/g, "");
+    if (digits.length < 8) continue;
+
+    // a) олон MN дугаар нэг мөрөнд: 99590584 88228276 -> 16 цифр -> 8,8 гэж хуваана
+    if (digits.length >= 16 && digits.length % 8 === 0) {
+      for (let i = 0; i < digits.length; i += 8) {
+        const part = digits.slice(i, i + 8);
+        pushCand(part, idx + i, "mn");
+      }
+      continue;
+    }
+
+    // b) яг 8 цифр байвал MN
+    if (digits.length === 8) {
+      pushCand(digits, idx, "mn");
+      continue;
+    }
+
+    // c) 9..15 бол foreign (үүнд 01xxxx... орно)
+    if (digits.length >= 9 && digits.length <= 15) {
+      pushCand(digits, idx, "intl");
+      continue;
+    }
+
+    // d) урт бол (мөнгө/данс зэрэг холилдсон байх магадлал өндөр) => ignore
+  }
+
+  if (cands.length === 0) {
+    return { ok: false, phoneRaw: original, reason: "утас олдсонгүй" };
+  }
+
+  // 4) “Нэг мөрөнд 2+ утас байвал эхнийх” гэснээр: idx хамгийн багаг авна
+  cands.sort((a, b) => a.idx - b.idx);
+
+  // Гэхдээ эхнийх нь intl, дараагийнх нь MN байвал MN-г илүүд үзэх үү?
+  // Таны шаардлага: "эхний дугаарыг оруулна" => ТЭРГҮҮНД idx.
+  const chosen = cands[0];
+
+  return { ok: true, phoneE164: chosen.e164, phoneRaw: original };
 }
-
-
 
 type Group = {
   startRow: number;
