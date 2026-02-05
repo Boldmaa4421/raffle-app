@@ -36,7 +36,6 @@ function normalizeCell(raw: any) {
 }
 
 // Excel serial-ийг LOCAL date-р үүсгэнэ
-// Excel serial-ийг "яг тэр өдөр"-өөр нь DB-д оруулахын тулд
 // date-only утгуудыг 12:00 цагтай болгож хадгална (timezone-оос болж +/-1 өдөр болохоос хамгаална)
 function parseDate(raw: any): Date | null {
   if (!raw) return null;
@@ -45,7 +44,6 @@ function parseDate(raw: any): Date | null {
   if (raw instanceof Date) {
     if (isNaN(raw.getTime())) return null;
 
-    // хэрвээ цаг нь яг 00:00:00 бол "date-only" гэж үзээд 12:00 болгоно
     if (
       raw.getHours() === 0 &&
       raw.getMinutes() === 0 &&
@@ -68,7 +66,6 @@ function parseDate(raw: any): Date | null {
     const y = dc.y;
     if (y < 2000 || y > 2100) return null;
 
-    // цаг байхгүй бол 12:00 гэж үзнэ
     const hasTime = (dc.H || 0) + (dc.M || 0) + (dc.S || 0) > 0;
     const hh = hasTime ? (dc.H || 0) : 12;
     const mm = hasTime ? (dc.M || 0) : 0;
@@ -84,32 +81,30 @@ function parseDate(raw: any): Date | null {
     const s = raw.trim();
     if (!s) return null;
 
-    // "YYYY-MM-DD" (эсвэл "YYYY/MM/DD") мэт date-only форматыг барьж аваад 12:00 болгоно
-   // "YYYY-MM-DD HH:mm:ss" эсвэл "YYYY/MM/DD HH:mm:ss" (local гэж үзнэ)
-const mt = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-if (mt) {
-  const y = Number(mt[1]);
-  const mo = Number(mt[2]);
-  const dd = Number(mt[3]);
-  const hh = Number(mt[4]);
-  const mm = Number(mt[5]);
-  const ss = Number(mt[6] ?? "0");
+    // "YYYY-MM-DD HH:mm:ss" эсвэл "YYYY/MM/DD HH:mm:ss" (local гэж үзнэ)
+    const mt = s.match(
+      /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/
+    );
+    if (mt) {
+      const y = Number(mt[1]);
+      const mo = Number(mt[2]);
+      const dd = Number(mt[3]);
+      const hh = Number(mt[4]);
+      const mm = Number(mt[5]);
+      const ss = Number(mt[6] ?? "0");
 
-  if (y < 2000 || y > 2100) return null;
-  const d = new Date(y, mo - 1, dd, hh, mm, ss, 0);
-  if (isNaN(d.getTime())) return null;
-  return d;
-}
+      if (y < 2000 || y > 2100) return null;
+      const d = new Date(y, mo - 1, dd, hh, mm, ss, 0);
+      if (isNaN(d.getTime())) return null;
+      return d;
+    }
 
-
-    // бусад string — JS Date parse
     const d = new Date(s);
     if (isNaN(d.getTime())) return null;
 
     const y = d.getFullYear();
     if (y < 2000 || y > 2100) return null;
 
-    // хэрвээ parse-дахад 00:00 болж орж ирвэл 12:00 болгоно
     if (
       d.getHours() === 0 &&
       d.getMinutes() === 0 &&
@@ -151,14 +146,18 @@ function looksLikeBankAccount(text: string) {
 
   return false;
 }
-function hasForeignPhoneHint(s: string) {
-  // +7..., +86..., +82... гэх мэт
-  if (/\+\d{8,15}/.test(s)) return true;
 
-  // 00... олон улсын (0086..., 007..., 0082...)
-  if (/00\d{8,15}/.test(s)) return true;
+// ✅ Foreign hint: +..., 00..., эсвэл "7xxxxxxxxxx" (ОХУ)
+function hasForeignPhoneHint(text: string) {
+  const s = normalizeCell(text);
 
-  // ОХУ-ын олон бичигддэг формат: "7 900..." (эхний 7 + 10 цифр)
+  // +7..., +86..., +82... гэх мэт (space/dash байж болно)
+  if (/\+\s*[\d\s-]{8,20}/.test(s)) return true;
+
+  // 00... олон улсын (0086..., 007..., 0082...) (space/dash байж болно)
+  if (/00[\d\s-]{8,20}/.test(s)) return true;
+
+  // ОХУ-ын нийтлэг формат: "7 900 658 2795" -> digits = 79006582795
   const digits = s.replace(/\D/g, "");
   if (/^7\d{10}$/.test(digits)) return true;
 
@@ -167,10 +166,8 @@ function hasForeignPhoneHint(s: string) {
 
 /**
  * ✅ Утас parse (Монгол + гадаад)
- * - Монгол: 8 оронтой (space, dash, text байж болно)
- * - Монгол: 976XXXXXXXX -> +976XXXXXXXX
- * - Гадаад: +E164 (8..15 орон)
- * - Гадаад: 00E164 (0086..., 0082... гэх мэт) -> +E164
+ * - Монгол: 8 оронтой (space, dash, text байж болно) -> normalizePhoneE164
+ * - Гадаад: зөвхөн hint-тэй үед ( +... / 00... / 7xxxxxxxxxx )
  */
 function parsePhone(raw: any): {
   ok: boolean;
@@ -182,25 +179,59 @@ function parsePhone(raw: any): {
 
   if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
 
-  // цифр огт байхгүй => дан текст
+  // цифр огт байхгүй → дан текст
   if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "дан текст" };
 
-  // огноо/цаг мөр үү? (2026-01-14 16:27:29)
+  const hasLetters = /[A-Za-zА-Яа-яӨөҮүЁё]/.test(s);
+
+  // ❌ огноо/цаг мөр бол утас гэж бүү оролд
   const looksLikeDateTime =
     /\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/.test(s) ||
     /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s);
+  if (looksLikeDateTime) return { ok: false, phoneRaw: s, reason: "огноо/цаг" };
 
-  // 1) +E164 (space/dash зөвшөөрнө)
-  const plus = s.match(/\+\s*[\d\s-]{8,20}/);
-  if (plus?.[0]) {
-    const digits = plus[0].replace(/[^\d]/g, "");
-    if (/^\d{8,15}$/.test(digits)) {
-      return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
+  // Зөвхөн цифрүүдийг авна
+  const digitsAll = s.replace(/\D/g, "");
+
+  // ❌ Текст + 1–7 цифр → утас биш (ж: "ээжээс нь 2", "3хүүдээ")
+  if (hasLetters && digitsAll.length > 0 && digitsAll.length < 8) {
+    return { ok: false, phoneRaw: s, reason: "текст + богино тоо" };
+  }
+
+  /* -------------------------------------------------
+   * 1) MN 8-digit (тасархай байсан ч) — ЭХНИЙ олдсоныг авна
+   *    Ямар ч тэмдэг/зай дундуур нь байж болно
+   *    Нэг мөрөнд олон утас байвал хамгийн эхний MN-г авна
+   * ------------------------------------------------- */
+  // digitsAll-оос гүйлгэж 8 оронтой цонхоор хайна
+  // (9965-5487 -> digitsAll="99655487")
+  for (let i = 0; i + 8 <= digitsAll.length; i++) {
+    const sub = digitsAll.slice(i, i + 8);
+
+    // MN утас: 8 цифр, ихэнхдээ 5-9-өөр эхэлдэг (2/3 эхэлдэг тусгай тохиолдол байвал хэлээрэй)
+    if (/^[5-9]\d{7}$/.test(sub)) {
+      const e = normalizePhoneE164(sub);
+      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
     }
   }
 
-  // 2) 00E164 (space/dash зөвшөөрнө)
-  const m00 = s.match(/00[\d\s-]{8,20}/);
+  /* -------------------------------------------------
+   * 2) +E164 (space/dash зөвшөөрнө) — олон байвал эхнийх
+   * ------------------------------------------------- */
+  const plusMatches = s.match(/\+\s*[\d\s-]{8,20}/g) ?? [];
+const cand = plusMatches[0];
+
+if (cand) {
+  const digits = cand.replace(/[^\d]/g, ""); // +, space, dash арилгана
+  if (/^\d{8,15}$/.test(digits)) {
+    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
+  }
+}
+
+  /* -------------------------------------------------
+   * 3) 00E164 (space/dash зөвшөөрнө) — олон байвал эхнийх
+   * ------------------------------------------------- */
+  const m00 = s.match(/00[\d\s\-\(\)]{8,25}/);
   if (m00?.[0]) {
     const digits = m00[0].replace(/[^\d]/g, "").slice(2);
     if (/^\d{8,15}$/.test(digits)) {
@@ -208,46 +239,24 @@ function parsePhone(raw: any): {
     }
   }
 
-  const digitsAll = s.replace(/\D/g, "");
-
-  // <8 цифр бол утас биш
-  if (digitsAll.length < 8) {
-    return { ok: false, phoneRaw: s, reason: "утас биш (<8 цифр)" };
+  /* -------------------------------------------------
+   * 4) 01… эхэлсэн гадаад (digitsAll бүхэлдээ 01...) — зөвшөөрнө
+   * ------------------------------------------------- */
+  if (/^01\d{7,14}$/.test(digitsAll)) {
+    return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
   }
 
-  // огноо/цаг мөр дээр foreign-г бүр хаана (андуурахаас хамгаална)
-  if (looksLikeDateTime) {
-    // Гэхдээ дотор нь MN 8 оронтой байвал олж авна
-    for (let i = 0; i + 8 <= digitsAll.length; i++) {
-      const sub = digitsAll.slice(i, i + 8);
-      if (/^[5-9]\d{7}$/.test(sub)) {
-        const e = normalizePhoneE164(sub);
-        if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-      }
-    }
-    return { ok: false, phoneRaw: s, reason: "огноо/цаг мөр" };
-  }
-
-  // 3) MN 8-digit: space/-, тексттэй хольсон ч дундаас нь 8 цифрийг сугална
-  for (let i = 0; i + 8 <= digitsAll.length; i++) {
-    const sub = digitsAll.slice(i, i + 8);
-    if (/^[5-9]\d{7}$/.test(sub)) {
-      const e = normalizePhoneE164(sub);
-      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-    }
-  }
-
-  // 4) Foreign: chunk-ууд (9–15)
+  /* -------------------------------------------------
+   * 5) Foreign: 9–15 цифр (тасархай байсан ч) — ЭХНИЙ олдсоныг авна
+   *    ⚠️ MN байхгүй үед л энд ирнэ
+   * ------------------------------------------------- */
+  // эхлээд chunk-аас 9–15 олдвол эхнийх
   const chunks = s.match(/\d+/g) ?? [];
-
-  // 4a) шууд 9–15 цифрийн chunk
   for (const c of chunks) {
-    if (/^\d{9,15}$/.test(c)) {
-      return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
-    }
+    if (/^\d{9,15}$/.test(c)) return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
   }
 
-  // 4b) тасархай foreign нийлүүлэлт (7 900 658 2795 гэх мэт)
+  // тасархай foreign нийлүүлээд 9–15 болсон даруйд авна
   for (let i = 0; i < chunks.length; i++) {
     let acc = "";
     for (let j = i; j < chunks.length && acc.length <= 15; j++) {
@@ -263,24 +272,18 @@ function parsePhone(raw: any): {
 }
 
 
-
 type Group = {
   startRow: number;
   purchasedAt: Date;
   phoneRaw: string;
   phoneE164: string;
-
   paid: number;
   qty: number;
   amount: number;
   diff: number; // paid - amount (>=0)
 };
 
-async function runPool<T>(
-  items: T[],
-  limit: number,
-  fn: (x: T) => Promise<any>
-) {
+async function runPool<T>(items: T[], limit: number, fn: (x: T) => Promise<any>) {
   const ret: Promise<any>[] = [];
   const executing = new Set<Promise<any>>();
   for (const it of items) {
@@ -302,33 +305,29 @@ export async function POST(req: Request) {
     const sourceFile = (body.sourceFile || "excel").trim();
     const rows = Array.isArray(body.rows) ? body.rows : [];
 
-    if (!raffleId)
-      return NextResponse.json({ error: "raffleId шаардлагатай" }, { status: 400 });
-    if (rows.length === 0)
-      return NextResponse.json({ error: "rows хоосон" }, { status: 400 });
+    if (!raffleId) return NextResponse.json({ error: "raffleId шаардлагатай" }, { status: 400 });
+    if (rows.length === 0) return NextResponse.json({ error: "rows хоосон" }, { status: 400 });
 
     const raffle = await prisma.raffle.findUnique({
       where: { id: raffleId },
       select: { id: true, ticketPrice: true },
     });
-    if (!raffle)
-      return NextResponse.json({ error: "Сугалаа олдсонгүй" }, { status: 404 });
+    if (!raffle) return NextResponse.json({ error: "Сугалаа олдсонгүй" }, { status: 404 });
 
     const ticketPrice = raffle.ticketPrice;
     if (!ticketPrice || ticketPrice <= 0)
       return NextResponse.json({ error: "ticketPrice буруу" }, { status: 400 });
 
-   const skipped: Array<{
-  row: number;
-  reason: string;
-  phoneRaw?: string;
-  paid?: number;
-  qty?: number;
-  diff?: number;
-  ticketPrice?: number;
-  raw?: any; // ✅ нэм
-}> = [];
-
+    const skipped: Array<{
+      row: number;
+      reason: string;
+      phoneRaw?: string;
+      paid?: number;
+      qty?: number;
+      diff?: number;
+      ticketPrice?: number;
+      raw?: any;
+    }> = [];
 
     const groups: Group[] = [];
 
@@ -343,42 +342,54 @@ export async function POST(req: Request) {
       const paid = toInt((raw as any)?.amount);
       const phoneCell = (raw as any)?.phone;
       const phoneText = normalizeCell(phoneCell);
-// ⛔ данс/банк/тайлбар маягийн мөр бол утас гэж бүү оролд (toхиргоо)
-// ✅ Данс/банк мэт харагдсан ч гадаад утас илэрвэл зөвшөөрнө
-
 
       if (purchasedAt) lastDate = purchasedAt;
       const effectiveDate = purchasedAt ?? lastDate;
 
       if (!effectiveDate) {
-        skipped.push({ row: excelRow, reason: "огноо олдсонгүй", phoneRaw: phoneText, paid, ticketPrice });
+        skipped.push({
+          row: excelRow,
+          reason: "огноо олдсонгүй",
+          phoneRaw: phoneText,
+          paid,
+          ticketPrice,
+          raw,
+        });
         current = null;
         continue;
       }
 
+      // ✅ Банк/данс/тайлбар мөрийг SKIP (гэхдээ +/00/7xxxxxxxxxx байвал зөвшөөрнө)
+      if (looksLikeBankAccount(phoneText) && !hasForeignPhoneHint(phoneText)) {
+        skipped.push({
+          row: excelRow,
+          reason: "данс/банк/тайлбар мөр",
+          phoneRaw: phoneText,
+          paid,
+          ticketPrice,
+          raw,
+        });
+        current = null;
+        continue;
+      }
 
+      const parsed = parsePhone(phoneCell);
 
+      if (!parsed.ok || !parsed.phoneE164) {
+        skipped.push({
+          row: excelRow,
+          reason: parsed.reason ?? "утас олдсонгүй",
+          phoneRaw: parsed.phoneRaw,
+          paid,
+          ticketPrice,
+          raw,
+        });
+        current = null;
+        continue;
+      }
 
-const parsed = parsePhone(phoneCell);
-
-if (!parsed.ok || !parsed.phoneE164) {
-  skipped.push({
-    row: excelRow,
-    reason: parsed.reason ?? "утас олдсонгүй",
-    phoneRaw: parsed.phoneRaw,
-    paid,
-    ticketPrice,
-  });
-  current = null;
-  continue;
-}
-
-console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
-
-      
       // ✅ CASE 1: утас олдсон мөр
       if (parsed.ok && parsed.phoneE164) {
-        // ✅ paid=0/хоосон мөр бол purchase биш гэж үзээд оруулахгүй (bank export)
         if (paid <= 0) {
           skipped.push({
             row: excelRow,
@@ -386,12 +397,12 @@ console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
             phoneRaw: parsed.phoneRaw,
             paid,
             ticketPrice,
+            raw,
           });
           current = null;
           continue;
         }
 
-        // ✅ purchase биш “хэт их дүн” мөрүүдийг хурдан ялгаж skip хийнэ
         if (isClearlyNotPurchase(paid, ticketPrice)) {
           skipped.push({
             row: excelRow,
@@ -399,12 +410,12 @@ console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
             phoneRaw: parsed.phoneRaw,
             paid,
             ticketPrice,
+            raw,
           });
           current = null;
           continue;
         }
 
-        // ✅ дутуу төлсөн бол оруулахгүй
         if (paid < ticketPrice) {
           skipped.push({
             row: excelRow,
@@ -412,6 +423,7 @@ console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
             phoneRaw: parsed.phoneRaw,
             paid,
             ticketPrice,
+            raw,
           });
           current = null;
           continue;
@@ -426,6 +438,7 @@ console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
             paid,
             qty,
             ticketPrice,
+            raw,
           });
           current = null;
           continue;
@@ -449,28 +462,27 @@ console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
       }
 
       // ✅ CASE 2: continuation зөвхөн phone нүд ХООСОН үед
-      // ❗ данс/банк/текст мөрийг continuation болгохгүй
       if (phoneText === "") {
         if (!current) {
-          skipped.push({ row: excelRow, reason: "continuation боловч өмнөх purchase алга", paid, ticketPrice });
+          skipped.push({ row: excelRow, reason: "continuation боловч өмнөх purchase алга", paid, ticketPrice, raw });
           continue;
         }
 
         if (paid <= 0) {
-          skipped.push({ row: excelRow, reason: "continuation amount хоосон", phoneRaw: current.phoneRaw, paid, ticketPrice });
+          skipped.push({ row: excelRow, reason: "continuation amount хоосон", phoneRaw: current.phoneRaw, paid, ticketPrice, raw });
           continue;
         }
 
         const newPaid = current.paid + paid;
 
         if (newPaid < ticketPrice) {
-          skipped.push({ row: excelRow, reason: "continuation нэмээд ч дутуу", phoneRaw: current.phoneRaw, paid: newPaid, ticketPrice });
+          skipped.push({ row: excelRow, reason: "continuation нэмээд ч дутуу", phoneRaw: current.phoneRaw, paid: newPaid, ticketPrice, raw });
           continue;
         }
 
         const qty = Math.floor(newPaid / ticketPrice);
         if (!Number.isFinite(qty) || qty <= 0 || qty > MAX_QTY) {
-          skipped.push({ row: excelRow, reason: "continuation qty буруу", phoneRaw: current.phoneRaw, paid: newPaid, qty, ticketPrice });
+          skipped.push({ row: excelRow, reason: "continuation qty буруу", phoneRaw: current.phoneRaw, paid: newPaid, qty, ticketPrice, raw });
           continue;
         }
 
@@ -482,11 +494,9 @@ console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
         continue;
       }
 
-      // ✅ CASE 3: банк/данс/утас олдохгүй текст мөр бол import хийхгүй
-      skipped.push({ row: excelRow, reason: parsed.reason || "дан текст/богино тоо", raw });
-current = null;
-continue;
-
+      skipped.push({ row: excelRow, reason: "дан текст/утас олдсонгүй", phoneRaw: phoneText, paid, ticketPrice, raw });
+      current = null;
+      continue;
     }
 
     // ---- INSERT ----
@@ -614,5 +624,4 @@ continue;
     console.error(e);
     return NextResponse.json({ error: e?.message || "Серверийн алдаа" }, { status: 500 });
   }
-  
 }

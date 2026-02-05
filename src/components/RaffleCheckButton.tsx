@@ -95,12 +95,12 @@ export default function RaffleCheckButton({
 
       {/* POPUP */}
       {open && (
-        <div className="fixed inset-0 z-[999]">
+       <div className="fixed inset-0 z-50">
           {/* overlay */}
-          <div
-            className="absolute inset-0 bg-black/70"
-            onClick={close}
-          />
+         <div
+    className="absolute inset-0 bg-black/70"
+    onClick={close}
+  />
 
   {/* modal */}
 <div className="fixed inset-0 z-[9999]">
@@ -111,9 +111,9 @@ export default function RaffleCheckButton({
   />
 
   {/* modal container */}
-  <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-6">
-   <div className="w-full max-w-2xl rounded-2xl border border-white/15 bg-black/85 shadow-[0_30px_120px_rgba(0,0,0,0.85)] overflow-hidden
-            max-h-[85dvh] flex flex-col">
+  <div className="relative h-full flex items-center justify-center p-4">
+
+    <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-black/80 backdrop-blur-xl shadow-2xl overflow-hidden">
 
       {/* sticky header */}
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10 bg-black/90 backdrop-blur">
@@ -135,13 +135,18 @@ export default function RaffleCheckButton({
 
         {/* input row */}
         <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Утасны дугаар"
-            inputMode="tel"
-            className="flex-1 rounded-xl px-4 py-3 bg-white/5 border border-white/15 outline-none text-white"
-          />
+        <input
+  value={phone}
+  onChange={(e) => setPhone(e.target.value)}
+  placeholder="Утасны дугаар"
+  inputMode="numeric"
+  type="tel"
+  pattern="[0-9+ ]*"
+  autoComplete="tel"
+  enterKeyHint="search"
+  className="flex-1 rounded-xl px-4 py-3 bg-white/5 border border-white/10 outline-none text-white text-[16px]"
+/>
+
 
           <button
             onClick={onSearch}
