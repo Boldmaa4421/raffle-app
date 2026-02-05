@@ -91,15 +91,20 @@ function pickRow(row: { purchasedAt?: any; amount?: any; phone?: any }) {
  * - 00... эхэлбэл + болгож авна
  */
 function parsePhone(raw: any): {
-  primary: string | null;
-  allE164: string[];
+  ok: boolean;
+  phoneE164?: string;
   phoneRaw: string;
   reason?: string;
-} {
+}
+  
+
+
+ {
   const s = normalizePhoneCell(raw);
 
-  if (!s) return { primary: null, allE164: [], phoneRaw: "", reason: "хоосон" };
-  if (!/\d/.test(s)) return { primary: null, allE164: [], phoneRaw: s, reason: "дан текст" };
+if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
+if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "дан текст" };
+
 
   const chunks = s.match(/\d+/g) ?? [];
 
@@ -154,11 +159,14 @@ function parsePhone(raw: any): {
   }
 
   if (allE164.length === 0) {
-    return { primary: null, allE164: [], phoneRaw: s, reason: "дан текст/богино тоо" };
+   return { ok: false, phoneRaw: s, reason: "дан текст/богино тоо" };
+
   }
 
-  const primary = allE164.find((x) => x.startsWith("+976")) ?? allE164[0];
-  return { primary, allE164, phoneRaw: s };
+  const phoneE164 = allE164.find((x) => x.startsWith("+976")) ?? allE164[0];
+if (!phoneE164) return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
+return { ok: true, phoneE164, phoneRaw: s };
+
 }
 
 export async function POST(req: Request) {
@@ -221,42 +229,48 @@ export async function POST(req: Request) {
       }
 
       // --- CASE 1: УТАС БАЙГАА МӨР ---
-      if (parsed.primary) {
-        const finalAmount = amount > 0 ? amount : ticketPrice;
+      // --- CASE 1: УТАС БАЙГАА МӨР ---
+// --- CASE 1: УТАС БАЙГАА МӨР ---
+if (parsed.ok && parsed.phoneE164) {
+  const finalAmount = amount > 0 ? amount : ticketPrice;
 
-        if (finalAmount <= 0) {
-          skipped.push({ row: excelRow, reason: "дүн (amount) хоосон/буруу", raw });
-          current = null;
-          continue;
-        }
-        if (finalAmount % ticketPrice !== 0) {
-          skipped.push({
-            row: excelRow,
-            reason: `дүн буруу (ticketPrice=${ticketPrice}-д хуваагдахгүй)`,
-            raw,
-          });
-          current = null;
-          continue;
-        }
+  if (finalAmount <= 0) {
+    skipped.push({ row: excelRow, reason: "дүн (amount) хоосон/буруу", raw });
+    current = null;
+    continue;
+  }
 
-        const qty = finalAmount / ticketPrice;
-        if (!Number.isFinite(qty) || qty <= 0 || qty > MAX_QTY) {
-          skipped.push({ row: excelRow, reason: `qty буруу (1-${MAX_QTY})`, raw });
-          current = null;
-          continue;
-        }
+  if (finalAmount % ticketPrice !== 0) {
+    skipped.push({
+      row: excelRow,
+      reason: `дүн буруу (ticketPrice=${ticketPrice}-д хуваагдахгүй)`,
+      raw,
+    });
+    current = null;
+    continue;
+  }
 
-        current = {
-          startRow: excelRow,
-          purchasedAt: effectiveDate,
-          amount: finalAmount,
-          phoneRaw: parsed.phoneRaw,
-          phoneE164: parsed.primary,
-          qty,
-        };
-        groups.push(current);
-        continue;
-      }
+  const qty = finalAmount / ticketPrice;
+  if (!Number.isFinite(qty) || qty <= 0 || qty > MAX_QTY) {
+    skipped.push({ row: excelRow, reason: `qty буруу (1-${MAX_QTY})`, raw });
+    current = null;
+    continue;
+  }
+
+  current = {
+    startRow: excelRow,
+    purchasedAt: effectiveDate,
+    amount: finalAmount,
+    phoneRaw: parsed.phoneRaw ?? phoneText,
+    phoneE164: parsed.phoneE164,
+    qty,
+  };
+
+  groups.push(current);
+  continue;
+}
+
+
 
       // --- CASE 2: УТАСГҮЙ МӨР (continuation) ---
       if (phoneText === "") {
@@ -265,7 +279,12 @@ export async function POST(req: Request) {
           continue;
         }
 
-        const addAmount = amount > 0 ? amount : ticketPrice;
+        const addAmount = amount; // phone хоосон мөр бол amount заавал бодит байх ёстой
+if (addAmount <= 0) {
+  skipped.push({ row: excelRow, reason: "continuation дүн хоосон", raw });
+  continue;
+}
+
 
         if (addAmount % ticketPrice !== 0) {
           skipped.push({ row: excelRow, reason: "утасгүй мөрийн дүн буруу", raw });

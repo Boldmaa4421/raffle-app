@@ -179,17 +179,18 @@ function parsePhone(raw: any): {
   reason?: string;
 } {
   const s = normalizeCell(raw);
-  if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
-  if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "тоогүй/дан текст" };
 
-  // Огноо/цаг мөр үү? (2026-01-14 16:27:29 гэх мэт) — ийм мөрийг foreign гэж бүү андуур
+  if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
+
+  // цифр огт байхгүй => дан текст
+  if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "дан текст" };
+
+  // огноо/цаг мөр үү? (2026-01-14 16:27:29)
   const looksLikeDateTime =
     /\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/.test(s) ||
     /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s);
 
-  /* -----------------------------
-   * 1) +E164 (space/dash зөвшөөрнө)
-   * ----------------------------- */
+  // 1) +E164 (space/dash зөвшөөрнө)
   const plus = s.match(/\+\s*[\d\s-]{8,20}/);
   if (plus?.[0]) {
     const digits = plus[0].replace(/[^\d]/g, "");
@@ -198,9 +199,7 @@ function parsePhone(raw: any): {
     }
   }
 
-  /* -----------------------------
-   * 2) 00E164 (space/dash зөвшөөрнө)
-   * ----------------------------- */
+  // 2) 00E164 (space/dash зөвшөөрнө)
   const m00 = s.match(/00[\d\s-]{8,20}/);
   if (m00?.[0]) {
     const digits = m00[0].replace(/[^\d]/g, "").slice(2);
@@ -209,14 +208,16 @@ function parsePhone(raw: any): {
     }
   }
 
-  // 3) MN 8-digit: space/-, тексттэй хольсон ч хамаагүй (881 514 39, 9074-5555, 8924 6061...)
-  // digitsAll дотроос 8-оронтой боломжит утсыг хайна
   const digitsAll = s.replace(/\D/g, "");
 
-  // ✅ Хэрвээ огноо/цаг мөр бол MN хайлт л зөвшөөр (foreign-ийг бүр хаана)
-  // (огноо + цаг нийлээд 14 цифр болохоор өмнө нь foreign болж орчихдог байсан)
+  // <8 цифр бол утас биш
+  if (digitsAll.length < 8) {
+    return { ok: false, phoneRaw: s, reason: "утас биш (<8 цифр)" };
+  }
+
+  // огноо/цаг мөр дээр foreign-г бүр хаана (андуурахаас хамгаална)
   if (looksLikeDateTime) {
-    // Огноо мөр дээр MN байх магадлал бага ч, байж болно гэж үзээд MN 8-digit substring хайя
+    // Гэхдээ дотор нь MN 8 оронтой байвал олж авна
     for (let i = 0; i + 8 <= digitsAll.length; i++) {
       const sub = digitsAll.slice(i, i + 8);
       if (/^[5-9]\d{7}$/.test(sub)) {
@@ -227,7 +228,7 @@ function parsePhone(raw: any): {
     return { ok: false, phoneRaw: s, reason: "огноо/цаг мөр" };
   }
 
-  // MN substring scan (хамгийн найдвартай нь)
+  // 3) MN 8-digit: space/-, тексттэй хольсон ч дундаас нь 8 цифрийг сугална
   for (let i = 0; i + 8 <= digitsAll.length; i++) {
     const sub = digitsAll.slice(i, i + 8);
     if (/^[5-9]\d{7}$/.test(sub)) {
@@ -236,19 +237,17 @@ function parsePhone(raw: any): {
     }
   }
 
-  /* -----------------------------
-   * 4) Foreign: зөвхөн chunks-аас 9–15 цифр (огноо хаагдсан тул энд андуурахгүй)
-   * ----------------------------- */
+  // 4) Foreign: chunk-ууд (9–15)
   const chunks = s.match(/\d+/g) ?? [];
 
-  // Шууд 9–15 цифрийн chunk
+  // 4a) шууд 9–15 цифрийн chunk
   for (const c of chunks) {
     if (/^\d{9,15}$/.test(c)) {
       return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
     }
   }
 
-  // Тасархай foreign нийлүүлэлт (7 900 658 2795 гэх мэт)
+  // 4b) тасархай foreign нийлүүлэлт (7 900 658 2795 гэх мэт)
   for (let i = 0; i < chunks.length; i++) {
     let acc = "";
     for (let j = i; j < chunks.length && acc.length <= 15; j++) {
@@ -262,6 +261,7 @@ function parsePhone(raw: any): {
 
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
 }
+
 
 
 type Group = {
@@ -318,15 +318,17 @@ export async function POST(req: Request) {
     if (!ticketPrice || ticketPrice <= 0)
       return NextResponse.json({ error: "ticketPrice буруу" }, { status: 400 });
 
-    const skipped: Array<{
-      row: number;
-      reason: string;
-      phoneRaw?: string;
-      paid?: number;
-      qty?: number;
-      diff?: number;
-      ticketPrice?: number;
-    }> = [];
+   const skipped: Array<{
+  row: number;
+  reason: string;
+  phoneRaw?: string;
+  paid?: number;
+  qty?: number;
+  diff?: number;
+  ticketPrice?: number;
+  raw?: any; // ✅ нэм
+}> = [];
+
 
     const groups: Group[] = [];
 
@@ -353,14 +355,13 @@ export async function POST(req: Request) {
         current = null;
         continue;
       }
+
+
+
+
 const parsed = parsePhone(phoneCell);
 
-// ✅ утас олдвол — банк гэсэн үг байсан ч ОРУУЛНА
-if (parsed.ok && parsed.phoneE164) {
-  // (энэ цаашаа таны paid/qty шалгалтууд хэвээр)
-} else {
- 
-
+if (!parsed.ok || !parsed.phoneE164) {
   skipped.push({
     row: excelRow,
     reason: parsed.reason ?? "утас олдсонгүй",
@@ -372,20 +373,6 @@ if (parsed.ok && parsed.phoneE164) {
   continue;
 }
 
-
-
-// ⛔ УТАС ОЛДООГҮЙ БОЛ — ШУУД SKIP
-if (!parsed.ok || !parsed.phoneE164) {
-  skipped.push({
-    row: excelRow,
-    reason: parsed.reason ?? "утас олдсонгүй",
-    phoneRaw: parsed.phoneRaw,
-    paid,
-    ticketPrice,
-  });
-  current = null;
-  continue; // 🔥 ЭНЭ Л ЧАМД ДУТААД БАЙСАН
-}
 console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
 
       
@@ -496,8 +483,10 @@ console.log("IMPORT:", excelRow, parsed.ok, parsed.reason, parsed.phoneRaw);
       }
 
       // ✅ CASE 3: банк/данс/утас олдохгүй текст мөр бол import хийхгүй
-      skipped.push({ row: excelRow, reason: parsed.reason || "утас олдсонгүй", phoneRaw: parsed.phoneRaw, paid, ticketPrice });
-      current = null;
+      skipped.push({ row: excelRow, reason: parsed.reason || "дан текст/богино тоо", raw });
+current = null;
+continue;
+
     }
 
     // ---- INSERT ----
