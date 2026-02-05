@@ -273,7 +273,15 @@ if (hasMnHint) {
       if (e) return { ok: true, phoneE164: e, phoneRaw: s };
     }
   }
+ /* -------------------------------------------------
+   * 6) Foreign fallback (8–15 digits)
+   * ------------------------------------------------- */
+  const digitsAll = s.replace(/\D/g, "");
+  if (/^\d{8,15}$/.test(digitsAll)) {
+    return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
+  }
 
+  
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
 }
 
