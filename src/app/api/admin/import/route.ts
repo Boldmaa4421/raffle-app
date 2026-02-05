@@ -180,59 +180,38 @@ function parsePhone(raw: any): {
   if (!original) return { ok: false, phoneRaw: "", reason: "хоосон" };
   if (!/\d/.test(original)) return { ok: false, phoneRaw: original, reason: "дан текст" };
 
-  // 0) Огноо/цагийг урьдчилж цэвэрлээд андуурал багасгана
-  // ж: 2026-02-02 15:56:35, 2026/02/02, 15:56:35
-  let s = original
+  // 0) Огноо/цагийг авч хая (андуурал багасгана)
+  const s = original
     .replace(/\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?\b/g, " ")
     .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, " ")
-    .replace(/\s+/g, " ")
     .trim();
 
   if (!/\d/.test(s)) return { ok: false, phoneRaw: original, reason: "огноо/цаг мөр" };
 
-  // Helper: кандидатыг нэмэх (эхний олдсоныг л авах бодлоготой)
-  type Cand = { e164: string; idx: number; kind: "mn" | "intl" };
+  type Cand = { e164: string; idx: number };
   const cands: Cand[] = [];
 
-  const pushCand = (digits: string, idx: number, kind: "mn" | "intl") => {
-    if (kind === "mn") {
-      // MN: 8 цифр, ихэнхдээ 5-9-өөр эхэлнэ
-      if (!/^[5-9]\d{7}$/.test(digits)) return;
-      const e = normalizePhoneE164(digits);
-      if (!e) return;
-      cands.push({ e164: e, idx, kind });
-      return;
-    }
-
-    // intl:
-    //  - 01-ээр эхэлсэн бол "гадаад" гэж зөвшөөрнө (01xxxxxxxx...)
-    //  - эсвэл ердийн 9..15 цифр
-    if (/^01\d{7,14}$/.test(digits)) {
-      cands.push({ e164: `+${digits}`, idx, kind });
-      return;
-    }
-    if (/^\d{9,15}$/.test(digits)) {
-      cands.push({ e164: `+${digits}`, idx, kind });
-      return;
-    }
+  const push = (e164: string, idx: number) => {
+    cands.push({ e164, idx });
   };
 
-  // 1) +E164 (space/dash/ямар ч тэмдэгтэй байсан цэвэрлээд авна)
-  //    ж: +7 900-658-2795, +86-138 0000 0000
-  const plusRe = /\+[\s\d\-()]{7,30}\d/g;
-  const plusMatch = plusRe.exec(s);
-  if (plusMatch?.[0]) {
-    const digits = plusMatch[0].replace(/\D/g, "");
+  // -------------------------
+  // 1) +E164 (space/dash/() зөвшөөрнө)
+  // -------------------------
+  const plus = /\+\s*[\d\s\-()]{7,30}\d/.exec(s);
+  if (plus?.[0]) {
+    const digits = plus[0].replace(/\D/g, "");
     if (/^\d{8,15}$/.test(digits)) {
       return { ok: true, phoneE164: `+${digits}`, phoneRaw: original };
     }
   }
 
-  // 2) 00E164 (0086..., 007..., 0082...) — separators зөвшөөрнө
-  const m00 = s.match(/00[\s\d\-()]{7,30}\d/);
+  // -------------------------
+  // 2) 00E164 (0086..., 007..., 0082...)
+  // -------------------------
+  const m00 = /00\s*[\d\s\-()]{7,30}\d/.exec(s);
   if (m00?.[0]) {
     const digitsAll = m00[0].replace(/\D/g, "");
-    // digitsAll = 00xxxxxxxx...
     if (digitsAll.startsWith("00")) {
       const digits = digitsAll.slice(2);
       if (/^\d{8,15}$/.test(digits)) {
@@ -241,55 +220,72 @@ function parsePhone(raw: any): {
     }
   }
 
-  // 3) Дугаар+separator-оор бүтсэн segment-үүдийг барина (үсэг орсон хэсгийг огт нийлүүлэхгүй)
-  //    Энэ нь "ХААНААС: 320000" гэх мэт мөнгө/тексттэй холилдсоныг буруу нийлүүлэхээс хамгаална.
-  //    Мөн "9965-5487", "88 526478", "881 514 39", "9074-5555" зэрэг орно.
-  const segRe = /(?:^|[^\w+])(\d[\d\s\-()]{6,40}\d)(?=$|[^\w])/g;
-  let seg: RegExpExecArray | null;
-  while ((seg = segRe.exec(s))) {
-    const segText = seg[1];
-    const idx = seg.index;
+  // -------------------------
+  // 3) "01..." гадаад дугаар (үсэг/тексттэй наалдсан ч олно)
+  //    Ж: 01095563262, "01095563262 Korea"
+  // -------------------------
+  {
+    const m01 = /01\d{7,14}/.exec(s.replace(/\s+/g, ""));
+    if (m01?.[0]) {
+      push(`+${m01[0]}`, s.indexOf(m01[0]));
+    }
+  }
 
-    // segment доторх бүх цифрийг нийлүүлнэ
-    const digits = segText.replace(/\D/g, "");
-    if (digits.length < 8) continue;
-
-    // a) олон MN дугаар нэг мөрөнд: 99590584 88228276 -> 16 цифр -> 8,8 гэж хуваана
-    if (digits.length >= 16 && digits.length % 8 === 0) {
-      for (let i = 0; i < digits.length; i += 8) {
-        const part = digits.slice(i, i + 8);
-        pushCand(part, idx + i, "mn");
+  // -------------------------
+  // 4) MN 8-digit: тасархай/зай/зураас/үсэгтэй наалдсан ч нийлүүлж олно
+  //    - digit хооронд 0..2 non-digit зөвшөөрнө (хэт холоос наахгүй)
+  //    Ж: 9965-5487, 88 526478, az99948656
+  // -------------------------
+  {
+    const reLooseMN = /[5-9](?:\D{0,2}\d){7}/g;
+    let m: RegExpExecArray | null;
+    while ((m = reLooseMN.exec(s))) {
+      const idx = m.index;
+      const digits = m[0].replace(/\D/g, "");
+      if (digits.length === 8 && /^[5-9]\d{7}$/.test(digits)) {
+        const e = normalizePhoneE164(digits);
+        if (e) push(e, idx);
       }
-      continue;
+    }
+  }
+
+  // -------------------------
+  // 5) Foreign 9..15 digit: тасархай/үсэгтэй наалдсан ч олно
+  //    (эхний олдсоныг авна)
+  // -------------------------
+  {
+    // эхлээд digit-run (үсэгтэй наалдсан ч) олно
+    const reIntl = /\d{9,15}/g;
+    let m: RegExpExecArray | null;
+    while ((m = reIntl.exec(s))) {
+      const digits = m[0];
+      // MN 8 биш; 01 тусдаа дээр баригдсан, энд ерөнхий foreign
+      push(`+${digits}`, m.index);
     }
 
-    // b) яг 8 цифр байвал MN
-    if (digits.length === 8) {
-      pushCand(digits, idx, "mn");
-      continue;
+    // дараа нь тасархайгаар бичсэн foreign: "7 900 658 2795" гэх мэт
+    const chunks = s.match(/\d+/g) ?? [];
+    for (let i = 0; i < chunks.length; i++) {
+      let acc = "";
+      for (let j = i; j < chunks.length && acc.length <= 15; j++) {
+        acc += chunks[j];
+        if (/^\d{9,15}$/.test(acc)) {
+          // acc-ийн эхний байрлалыг ойролцоогоор олгоё (нарийн байх албагүй)
+          push(`+${acc}`, s.indexOf(chunks[i]));
+          break;
+        }
+        if (acc.length > 15) break;
+      }
     }
-
-    // c) 9..15 бол foreign (үүнд 01xxxx... орно)
-    if (digits.length >= 9 && digits.length <= 15) {
-      pushCand(digits, idx, "intl");
-      continue;
-    }
-
-    // d) урт бол (мөнгө/данс зэрэг холилдсон байх магадлал өндөр) => ignore
   }
 
   if (cands.length === 0) {
     return { ok: false, phoneRaw: original, reason: "утас олдсонгүй" };
   }
 
-  // 4) “Нэг мөрөнд 2+ утас байвал эхнийх” гэснээр: idx хамгийн багаг авна
+  // Нэг мөрөнд 2+ утас байвал ЭХНИЙХ
   cands.sort((a, b) => a.idx - b.idx);
-
-  // Гэхдээ эхнийх нь intl, дараагийнх нь MN байвал MN-г илүүд үзэх үү?
-  // Таны шаардлага: "эхний дугаарыг оруулна" => ТЭРГҮҮНД idx.
-  const chosen = cands[0];
-
-  return { ok: true, phoneE164: chosen.e164, phoneRaw: original };
+  return { ok: true, phoneE164: cands[0].e164, phoneRaw: original };
 }
 
 type Group = {
