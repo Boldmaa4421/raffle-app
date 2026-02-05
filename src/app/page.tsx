@@ -104,20 +104,19 @@ export default async function HomePage() {
   </div>
 
   {/* Зураг: бүтнээрээ харагдана */}
-  <div className="rounded-2xl border border-white/10 bg-white/5 shadow-2xl overflow-hidden">
-    <img
-      src="/images/Blue and White Modern Message Conversation Facebook Post.png"
-      alt="Сугалаа буцаах мэдээлэл"
-      className="
-        w-full
-        h-[220px]        /* mobile */
-        sm:h-[260px]
-        md:h-[320px]
-        lg:h-[420px]     /* desktop */
-        object-contain
-      "
-    />
-  </div>
+  <div className="rounded-2xl border border-white/10 overflow-hidden bg-white/5">
+  <img
+    src="/images/Blue and White Modern Message Conversation Facebook Post.png"
+    alt="Сугалаа буцаах мэдээлэл"
+    className="
+      w-full
+      h-[220px] sm:h-[260px] md:h-[320px] lg:h-[360px]
+      object-contain
+      bg-white
+    "
+  />
+</div>
+
 </div>
 
 
