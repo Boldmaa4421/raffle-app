@@ -3,15 +3,18 @@
 import { useState } from "react";
 import TicketPopup from "@/components/TicketPopup";
 
+
+
 export default function CheckClient({
-  raffleId,
-  title,
-  img,
+  raffleId = "",
+  title = "Утасны дугаараар код шалгах",
+  img = "/images/Blue and White Modern Message Conversation Facebook Post.png",
 }: {
-  raffleId: string;
-  title: string;
-  img: string;
-}) {
+  raffleId?: string;
+  title?: string;
+  img?: string;
+}) 
+{
   const [phone, setPhone] = useState("");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
