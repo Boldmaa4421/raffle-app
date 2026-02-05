@@ -85,17 +85,22 @@ function parseDate(raw: any): Date | null {
     if (!s) return null;
 
     // "YYYY-MM-DD" (эсвэл "YYYY/MM/DD") мэт date-only форматыг барьж аваад 12:00 болгоно
-    const m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-    if (m) {
-      const y = Number(m[1]);
-      const mo = Number(m[2]);
-      const dd = Number(m[3]);
-      if (y < 2000 || y > 2100) return null;
+   // "YYYY-MM-DD HH:mm:ss" эсвэл "YYYY/MM/DD HH:mm:ss" (local гэж үзнэ)
+const mt = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+if (mt) {
+  const y = Number(mt[1]);
+  const mo = Number(mt[2]);
+  const dd = Number(mt[3]);
+  const hh = Number(mt[4]);
+  const mm = Number(mt[5]);
+  const ss = Number(mt[6] ?? "0");
 
-      const d = new Date(y, mo - 1, dd, 12, 0, 0, 0);
-      if (isNaN(d.getTime())) return null;
-      return d;
-    }
+  if (y < 2000 || y > 2100) return null;
+  const d = new Date(y, mo - 1, dd, hh, mm, ss, 0);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
 
     // бусад string — JS Date parse
     const d = new Date(s);
@@ -146,6 +151,19 @@ function looksLikeBankAccount(text: string) {
 
   return false;
 }
+function hasForeignPhoneHint(s: string) {
+  // +7..., +86..., +82... гэх мэт
+  if (/\+\d{8,15}/.test(s)) return true;
+
+  // 00... олон улсын (0086..., 007..., 0082...)
+  if (/00\d{8,15}/.test(s)) return true;
+
+  // ОХУ-ын олон бичигддэг формат: "7 900..." (эхний 7 + 10 цифр)
+  const digits = s.replace(/\D/g, "");
+  if (/^7\d{10}$/.test(digits)) return true;
+
+  return false;
+}
 
 /**
  * ✅ Утас parse (Монгол + гадаад)
@@ -168,13 +186,18 @@ function parsePhone(raw: any): {
   if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "тоогүй/дан текст" };
 
   // 1) +E164 хайна (text дунд байсан ч болно)
-  const plusMatches = s.match(/\+\d{8,15}/g) ?? [];
-  if (plusMatches.length > 0) {
-    const cand = plusMatches[0];
-    if (cand && /^\+\d{8,15}$/.test(cand)) {
-      return { ok: true, phoneE164: cand, phoneRaw: s };
-    }
+ // 1) +E164 хайна (text дунд байсан ч болно, +7 900..., +86-... гэх мэт space/dash зөвшөөрнө)
+const plusMatches = s.match(/\+\s*[\d\s-]{8,20}/g) ?? [];
+const cand = plusMatches[0];
+
+if (cand) {
+  const digits = cand.replace(/[^\d]/g, ""); // + тэмдэг/зай/зураасыг цэвэрлээд зөвхөн тоо үлдээнэ
+  if (/^\d{8,15}$/.test(digits)) {
+    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
   }
+}
+
+
 
   // 2) 00... олон улсын формат (0086..., 0082...) => +...
   const m00 = s.match(/00\d{8,15}/);
@@ -310,17 +333,8 @@ export async function POST(req: Request) {
       const phoneCell = (raw as any)?.phone;
       const phoneText = normalizeCell(phoneCell);
 // ⛔ данс/банк/тайлбар маягийн мөр бол утас гэж бүү оролд (toхиргоо)
-if (looksLikeBankAccount(phoneText)) {
-  skipped.push({
-    row: excelRow,
-    reason: "данс/банк/тайлбар мөр",
-    phoneRaw: phoneText,
-    paid,
-    ticketPrice,
-  });
-  current = null;
-  continue;
-}
+// ✅ Данс/банк мэт харагдсан ч гадаад утас илэрвэл зөвшөөрнө
+
 
       if (purchasedAt) lastDate = purchasedAt;
       const effectiveDate = purchasedAt ?? lastDate;
@@ -331,6 +345,36 @@ if (looksLikeBankAccount(phoneText)) {
         continue;
       }
 const parsed = parsePhone(phoneCell);
+
+// ✅ утас олдвол — банк гэсэн үг байсан ч ОРУУЛНА
+if (parsed.ok && parsed.phoneE164) {
+  // (энэ цаашаа таны paid/qty шалгалтууд хэвээр)
+} else {
+  // ✅ утас олдохгүй мөрүүд дээр л банк/данс шүүлтүүр ажиллана
+  if (looksLikeBankAccount(phoneText) && !hasForeignPhoneHint(phoneText)) {
+    skipped.push({
+      row: excelRow,
+      reason: "данс/банк/тайлбар мөр",
+      phoneRaw: phoneText,
+      paid,
+      ticketPrice,
+    });
+    current = null;
+    continue;
+  }
+
+  skipped.push({
+    row: excelRow,
+    reason: parsed.reason ?? "утас олдсонгүй",
+    phoneRaw: parsed.phoneRaw,
+    paid,
+    ticketPrice,
+  });
+  current = null;
+  continue;
+}
+
+
 
 // ⛔ УТАС ОЛДООГҮЙ БОЛ — ШУУД SKIP
 if (!parsed.ok || !parsed.phoneE164) {

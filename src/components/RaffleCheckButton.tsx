@@ -112,7 +112,9 @@ export default function RaffleCheckButton({
 
   {/* modal container */}
   <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-6">
-    <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/15 bg-black/85 shadow-[0_30px_120px_rgba(0,0,0,0.85)]">
+   <div className="w-full max-w-2xl rounded-2xl border border-white/15 bg-black/85 shadow-[0_30px_120px_rgba(0,0,0,0.85)] overflow-hidden
+            max-h-[85dvh] flex flex-col">
+
       {/* sticky header */}
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10 bg-black/90 backdrop-blur">
         <div>
@@ -129,7 +131,8 @@ export default function RaffleCheckButton({
         </button>
       </div>
 
-      <div className="p-5">
+      <div className="p-5 overflow-y-auto flex-1">
+
         {/* input row */}
         <div className="flex flex-col sm:flex-row gap-2">
           <input
@@ -191,12 +194,14 @@ export default function RaffleCheckButton({
                       Үүссэн код: <b className="text-white">{g.codes.length}</b>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+
                       {g.codes.map((c) => (
                         <span
                           key={c}
                           title={c}
-                          className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-sm font-extrabold text-emerald-200"
+                          className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-extrabold text-emerald-200 text-center"
+
                         >
                           {prettyCode(c)}
                         </span>
@@ -211,7 +216,7 @@ export default function RaffleCheckButton({
 
               {data.groups.length === 0 && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/75">
-                  Энэ сугалаанд энэ дугаараар purchase олдсонгүй.
+                  Энэ сугалаанд энэ дугаараар худалдан авалт олдсонгүй.
                 </div>
               )}
             </div>
