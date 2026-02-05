@@ -214,19 +214,24 @@ if (cand) {
     // ✅ 3) Монгол 8 оронтойг текст дундаас "тасархай байсан ч" нийлүүлж олно
   // Ж: "88 058978", "8845 7894", "88-05-8978", "88_05 89 78"
   //  - цифрүүдийн хооронд 0-2 тэмдэг/зай байж болно (хэт урт бол огт өөр тоонууд нийлээд андуурна)
+  // ✅ MN 8-digit: MN prefix байвал (MN:, утас, дугаар гэх мэт) тасархай байсан ч нийлүүлж авна
+const hasMnHint = /(^|\b)(mn|утас|дугаар|phone)\b/i.test(s);
+
+if (hasMnHint) {
   const mnLoose = s.match(
-    /(?:\+?976)?\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])/
+    /([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])/
   );
   if (mnLoose) {
-    const eight = mnLoose.slice(1).join(""); // 8 цифрийг нийлүүлнэ
-     // ✅ Монгол утас ихэнхдээ 5-9-өөр эхэлдэг (11000000 шигийг шууд унагаана)
-  if (!/^[5-9]\d{7}$/.test(eight)) {
-    return { ok: false, phoneRaw: s, reason: "MN утасны prefix биш" };
-  }
+    const eight = mnLoose.slice(1).join("");
 
-    const e = normalizePhoneE164(eight);
-    if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+    // Монгол утас: 8 цифр, ихэнхдээ 5-9
+    if (/^[5-9]\d{7}$/.test(eight)) {
+      const e = normalizePhoneE164(eight);
+      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+    }
   }
+}
+
 
 
   // 4) Хэрвээ 8 оронтой MN олдохгүй бол:
@@ -350,18 +355,7 @@ const parsed = parsePhone(phoneCell);
 if (parsed.ok && parsed.phoneE164) {
   // (энэ цаашаа таны paid/qty шалгалтууд хэвээр)
 } else {
-  // ✅ утас олдохгүй мөрүүд дээр л банк/данс шүүлтүүр ажиллана
-  if (looksLikeBankAccount(phoneText) && !hasForeignPhoneHint(phoneText)) {
-    skipped.push({
-      row: excelRow,
-      reason: "данс/банк/тайлбар мөр",
-      phoneRaw: phoneText,
-      paid,
-      ticketPrice,
-    });
-    current = null;
-    continue;
-  }
+ 
 
   skipped.push({
     row: excelRow,
