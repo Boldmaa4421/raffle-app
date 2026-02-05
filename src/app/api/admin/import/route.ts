@@ -179,157 +179,86 @@ function parsePhone(raw: any): {
   reason?: string;
 } {
   const s = normalizeCell(raw);
-
   if (!s) return { ok: false, phoneRaw: "", reason: "хоосон" };
-
-  // digits огт байхгүй => дан текст => SKIP
   if (!/\d/.test(s)) return { ok: false, phoneRaw: s, reason: "тоогүй/дан текст" };
 
-  // 1) +E164 хайна (text дунд байсан ч болно)
- // 1) +E164 хайна (text дунд байсан ч болно, +7 900..., +86-... гэх мэт space/dash зөвшөөрнө)
-const plusMatches = s.match(/\+\s*[\d\s-]{8,20}/g) ?? [];
-const cand = plusMatches[0];
+  // Огноо/цаг мөр үү? (2026-01-14 16:27:29 гэх мэт) — ийм мөрийг foreign гэж бүү андуур
+  const looksLikeDateTime =
+    /\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/.test(s) ||
+    /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s);
 
-if (cand) {
-  const digits = cand.replace(/[^\d]/g, ""); // + тэмдэг/зай/зураасыг цэвэрлээд зөвхөн тоо үлдээнэ
-  if (/^\d{8,15}$/.test(digits)) {
-    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
-  }
-}
-
-
-
-  // 2) 00... олон улсын формат (0086..., 0082...) => +...
-  // 2) 00... олон улсын формат (space/dash зөвшөөрнө) => +...
-const m00 = s.match(/00[\d\s-]{8,20}/);
-if (m00?.[0]) {
-  const digits = m00[0].replace(/[^\d]/g, "").slice(2);
-  if (/^\d{8,15}$/.test(digits)) {
-    return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
-  }
-}
-
-
-  if (m00?.[0]) {
-    const digits = m00[0].slice(2); // remove leading 00
+  /* -----------------------------
+   * 1) +E164 (space/dash зөвшөөрнө)
+   * ----------------------------- */
+  const plus = s.match(/\+\s*[\d\s-]{8,20}/);
+  if (plus?.[0]) {
+    const digits = plus[0].replace(/[^\d]/g, "");
     if (/^\d{8,15}$/.test(digits)) {
       return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
     }
   }
 
-  // ✅ 3) Монгол 8 оронтой дугаарыг "текст дотроос" хамгийн түрүүнд сугална
-  // Ж: "88606221 ХААНААС: 150000 ...", "99643334 ; 95820309", "+976 88606221"
-  // (Зөвхөн эхний олдсоныг авна)
-    // ✅ 3) Монгол 8 оронтойг текст дундаас "тасархай байсан ч" нийлүүлж олно
-  // Ж: "88 058978", "8845 7894", "88-05-8978", "88_05 89 78"
-  //  - цифрүүдийн хооронд 0-2 тэмдэг/зай байж болно (хэт урт бол огт өөр тоонууд нийлээд андуурна)
-  // ✅ MN 8-digit: MN prefix байвал (MN:, утас, дугаар гэх мэт) тасархай байсан ч нийлүүлж авна
-const hasMnHint = /(^|\b)(mn|утас|дугаар|phone)\b/i.test(s);
-
-if (hasMnHint) {
-  const mnLoose = s.match(
-    /([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])\D*([0-9])/
-  );
-  if (mnLoose) {
-    const eight = mnLoose.slice(1).join("");
-
-    // Монгол утас: 8 цифр, ихэнхдээ 5-9
-    if (/^[5-9]\d{7}$/.test(eight)) {
-      const e = normalizePhoneE164(eight);
-      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+  /* -----------------------------
+   * 2) 00E164 (space/dash зөвшөөрнө)
+   * ----------------------------- */
+  const m00 = s.match(/00[\d\s-]{8,20}/);
+  if (m00?.[0]) {
+    const digits = m00[0].replace(/[^\d]/g, "").slice(2);
+    if (/^\d{8,15}$/.test(digits)) {
+      return { ok: true, phoneE164: `+${digits}`, phoneRaw: s };
     }
   }
-}
 
+  // 3) MN 8-digit: space/-, тексттэй хольсон ч хамаагүй (881 514 39, 9074-5555, 8924 6061...)
+  // digitsAll дотроос 8-оронтой боломжит утсыг хайна
+  const digitsAll = s.replace(/\D/g, "");
 
-
-  // 4) Хэрвээ 8 оронтой MN олдохгүй бол:
-  // текст доторх бүх "digit chunk"-уудыг авч, хамгийн боломжит утсыг сонгоно
-  const looksLikeDateTime =
-    /\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/.test(s) ||
-    /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s);
-
-  const chunks = s.match(/\d+/g) ?? [];
-
-  /* -------------------------------------------------
-   * 4) MN 8 цифр — тасархайг НИЙЛҮҮЛЖ барина
-   *    881 514 39 → 88151439
-   *    96 384404 → 96384404
-   *    9500 2425 → 95002425
-   * ------------------------------------------------- */
- /* -------------------------------------------------
- * 6) Foreign (chunks-аас сонгоно) — country code шаардахгүй
- *  - огноо/цаг мөрийг looksLikeDateTime дээр блоклосон
- *  - 9–15 цифр байвал foreign гэж зөвшөөрнө
- * ------------------------------------------------- */
-
-// 6a) Шууд 9–15 цифрийн chunk байвал эхнийхийг авна
-for (const c of chunks) {
-  if (/^\d{9,15}$/.test(c)) {
-    return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
-  }
-}
-
-// 6b) Тасархай foreign (ж: "7 900 658 2795", "86 138 0000 0000") — consecutive chunks нийлүүлнэ
-for (let i = 0; i < chunks.length; i++) {
-  let acc = "";
-  for (let j = i; j < chunks.length && acc.length <= 15; j++) {
-    acc += chunks[j];
-    if (/^\d{9,15}$/.test(acc)) {
-      return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
-    }
-    if (acc.length > 15) break;
-  }
-}
-
-
-  /* -------------------------------------------------
-   * 5) MN 8-digit chunk шууд
-   * ------------------------------------------------- */
-  for (const c of chunks) {
-    if (/^\d{8}$/.test(c) && /^[5-9]/.test(c)) {
-      const e = normalizePhoneE164(c);
-      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-    }
-  }
-  /* -------------------------------------------------
- * 6) Foreign (chunks-аас сонгоно)
- *  - Текст дотор дүн/огноо байвал digitsAll хэт урт болдог тул chunks ашиглана
- * ------------------------------------------------- */
-
-// 6a) Эхлээд хамгийн "гадаад" магадлал өндөр: 9–15 цифрийн chunk
-// 6b) consecutive chunks нийлүүлээд foreign болгох (strict)
-for (let i = 0; i < chunks.length; i++) {
-  let acc = "";
-  for (let j = i; j < chunks.length && acc.length <= 15; j++) {
-    acc += chunks[j];
-
-    if (/^\d{9,15}$/.test(acc)) {
-      // ✅ country code мэт эхлэл (хамгийн нийтлэгийг зөвшөөрнө)
-      // 7 (RU), 86 (CN), 82 (KR), 81 (JP), 1 (US/CA), 44 (UK) гэх мэт
-      if (/^(7|86|82|81|1|44|49|33|39|90|91|61|65|66)\d{7,13}$/.test(acc)) {
-        return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
+  // ✅ Хэрвээ огноо/цаг мөр бол MN хайлт л зөвшөөр (foreign-ийг бүр хаана)
+  // (огноо + цаг нийлээд 14 цифр болохоор өмнө нь foreign болж орчихдог байсан)
+  if (looksLikeDateTime) {
+    // Огноо мөр дээр MN байх магадлал бага ч, байж болно гэж үзээд MN 8-digit substring хайя
+    for (let i = 0; i + 8 <= digitsAll.length; i++) {
+      const sub = digitsAll.slice(i, i + 8);
+      if (/^[5-9]\d{7}$/.test(sub)) {
+        const e = normalizePhoneE164(sub);
+        if (e) return { ok: true, phoneE164: e, phoneRaw: s };
       }
     }
-
-    if (acc.length > 15) break;
+    return { ok: false, phoneRaw: s, reason: "огноо/цаг мөр" };
   }
-}
 
+  // MN substring scan (хамгийн найдвартай нь)
+  for (let i = 0; i + 8 <= digitsAll.length; i++) {
+    const sub = digitsAll.slice(i, i + 8);
+    if (/^[5-9]\d{7}$/.test(sub)) {
+      const e = normalizePhoneE164(sub);
+      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+    }
+  }
 
-// 6b) Хэрвээ гадаад дугаар тасархай бичигдсэн бол (ж: "7 900 658 2795", "86 138 0000 0000")
-//     consecutive chunks нийлүүлээд 9–15 болсон даруйд авна
-for (const c of chunks) {
-  if (/^\d{9,15}$/.test(c)) {
-    if (/^(7|86|82|81|1|44|49|33|39|90|91|61|65|66)\d{7,13}$/.test(c)) {
+  /* -----------------------------
+   * 4) Foreign: зөвхөн chunks-аас 9–15 цифр (огноо хаагдсан тул энд андуурахгүй)
+   * ----------------------------- */
+  const chunks = s.match(/\d+/g) ?? [];
+
+  // Шууд 9–15 цифрийн chunk
+  for (const c of chunks) {
+    if (/^\d{9,15}$/.test(c)) {
       return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
     }
   }
-}
 
-
-
-
+  // Тасархай foreign нийлүүлэлт (7 900 658 2795 гэх мэт)
+  for (let i = 0; i < chunks.length; i++) {
+    let acc = "";
+    for (let j = i; j < chunks.length && acc.length <= 15; j++) {
+      acc += chunks[j];
+      if (/^\d{9,15}$/.test(acc)) {
+        return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
+      }
+      if (acc.length > 15) break;
+    }
+  }
 
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
 }
