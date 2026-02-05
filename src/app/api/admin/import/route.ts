@@ -287,35 +287,37 @@ if (hasMnHint) {
  * ------------------------------------------------- */
 
 // 6a) Эхлээд хамгийн "гадаад" магадлал өндөр: 9–15 цифрийн chunk
-for (const c of chunks) {
-  if (/^\d{9,15}$/.test(c)) {
-    return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
-  }
-}
-
-// 6b) Хэрвээ гадаад дугаар тасархай бичигдсэн бол (ж: "7 900 658 2795", "86 138 0000 0000")
-//     consecutive chunks нийлүүлээд 9–15 болсон даруйд авна
+// 6b) consecutive chunks нийлүүлээд foreign болгох (strict)
 for (let i = 0; i < chunks.length; i++) {
   let acc = "";
   for (let j = i; j < chunks.length && acc.length <= 15; j++) {
     acc += chunks[j];
+
     if (/^\d{9,15}$/.test(acc)) {
-      return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
+      // ✅ country code мэт эхлэл (хамгийн нийтлэгийг зөвшөөрнө)
+      // 7 (RU), 86 (CN), 82 (KR), 81 (JP), 1 (US/CA), 44 (UK) гэх мэт
+      if (/^(7|86|82|81|1|44|49|33|39|90|91|61|65|66)\d{7,13}$/.test(acc)) {
+        return { ok: true, phoneE164: `+${acc}`, phoneRaw: s };
+      }
     }
+
     if (acc.length > 15) break;
   }
 }
 
-// 6c) Сүүлчийн fallback: бүх digits нийлээд 8–15 байвал авна (ж: зөвхөн 1 дугаар бүхий мөр)
-const digitsAll = s.replace(/\D/g, "");
-if (/^\d{8,15}$/.test(digitsAll)) {
-  if (digitsAll.length === 8) {
-    const e = normalizePhoneE164(digitsAll);
-    if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-    return { ok: false, phoneRaw: s, reason: "8 оронтой боловч MN биш" };
+
+// 6b) Хэрвээ гадаад дугаар тасархай бичигдсэн бол (ж: "7 900 658 2795", "86 138 0000 0000")
+//     consecutive chunks нийлүүлээд 9–15 болсон даруйд авна
+for (const c of chunks) {
+  if (/^\d{9,15}$/.test(c)) {
+    if (/^(7|86|82|81|1|44|49|33|39|90|91|61|65|66)\d{7,13}$/.test(c)) {
+      return { ok: true, phoneE164: `+${c}`, phoneRaw: s };
+    }
   }
-  return { ok: true, phoneE164: `+${digitsAll}`, phoneRaw: s };
 }
+
+
+
 
 
   return { ok: false, phoneRaw: s, reason: "утас олдсонгүй" };
