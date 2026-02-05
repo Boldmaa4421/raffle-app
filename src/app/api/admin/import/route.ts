@@ -236,23 +236,41 @@ if (hasMnHint) {
 
   // 4) Хэрвээ 8 оронтой MN олдохгүй бол:
   // текст доторх бүх "digit chunk"-уудыг авч, хамгийн боломжит утсыг сонгоно
+  const looksLikeDateTime =
+    /\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/.test(s) ||
+    /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(s);
+
   const chunks = s.match(/\d+/g) ?? [];
 
-  // 4a) Foreign: 8-15 digits chunk-оос эхнийх
-  for (const c of chunks) {
-    const d = c.replace(/\D/g, "");
-    if (/^\d{8,15}$/.test(d)) {
-      // 976XXXXXXXX (11) бол +976...
-      if (/^976\d{8}$/.test(d)) return { ok: true, phoneE164: `+${d}`, phoneRaw: s };
+  /* -------------------------------------------------
+   * 4) MN 8 цифр — тасархайг НИЙЛҮҮЛЖ барина
+   *    881 514 39 → 88151439
+   *    96 384404 → 96384404
+   *    9500 2425 → 95002425
+   * ------------------------------------------------- */
+  if (!looksLikeDateTime) {
+    for (let i = 0; i < chunks.length; i++) {
+      let acc = "";
+      for (let j = i; j < chunks.length && acc.length <= 15; j++) {
+        acc += chunks[j];
 
-      // 8 оронтой бол MN гэж оролдоод, чадвал MN, чадахгүй бол foreign болгож болохгүй (андуурал их гарна)
-      if (d.length === 8) {
-        const e = normalizePhoneE164(d);
-        if (e) return { ok: true, phoneE164: e, phoneRaw: s };
-        continue;
+        if (acc.length === 8 && /^[5-9]\d{7}$/.test(acc)) {
+          const e = normalizePhoneE164(acc);
+          if (e) return { ok: true, phoneE164: e, phoneRaw: s };
+        }
+
+        if (acc.length > 15) break;
       }
+    }
+  }
 
-      return { ok: true, phoneE164: `+${d}`, phoneRaw: s };
+  /* -------------------------------------------------
+   * 5) MN 8-digit chunk шууд
+   * ------------------------------------------------- */
+  for (const c of chunks) {
+    if (/^\d{8}$/.test(c) && /^[5-9]/.test(c)) {
+      const e = normalizePhoneE164(c);
+      if (e) return { ok: true, phoneE164: e, phoneRaw: s };
     }
   }
 
