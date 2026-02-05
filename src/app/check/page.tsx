@@ -1,13 +1,5 @@
-import CheckClient from "./checkClient";
+import CheckClient from "./ui";
 
-export default function Page({
-  searchParams,
-}: {
-  searchParams: { raffleId?: string; title?: string; img?: string };
-}) {
-  const raffleId = searchParams.raffleId || "";
-  const title = searchParams.title || "Сугалаа";
-  const img = searchParams.img || "";
-
-  return <CheckClient raffleId={raffleId} title={title} img={img} />;
+export default function Page() {
+  return <CheckClient />;
 }

@@ -163,7 +163,7 @@ export default async function HomePage() {
       <RaffleLookupButton
         raffleId={r.id}
         raffleTitle={r.title}
-        imageUrl={r.imageUrl}
+        
       />
     </div>
 </div>
