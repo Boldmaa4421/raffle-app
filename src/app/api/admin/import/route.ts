@@ -37,51 +37,56 @@ function normalizeCell(raw: any) {
 
 // Excel serial-ийг LOCAL date-р үүсгэнэ
 // date-only утгуудыг 12:00 цагтай болгож хадгална (timezone-оос болж +/-1 өдөр болохоос хамгаална)
-function parseDate(raw: any): Date | null {
-  if (!raw) return null;
+function dateFromMNParts(y: number, m: number, d: number, H = 0, M = 0, S = 0) {
+  return new Date(Date.UTC(y, m - 1, d, H - 8, M, S)); // Asia/Ulaanbaatar = UTC+8
+}
+
+export function parseDate(raw: any): Date | null {
+  if (raw == null || raw === "") return null;
 
   // Excel serial
   if (typeof raw === "number") {
     const dc = XLSX.SSF.parse_date_code(raw);
     if (!dc) return null;
 
-    // ✅ UTC-г ашиглахгүй, огноог яг байгаагаар нь "хадгалах"
-    const d = new Date(
+    const d = dateFromMNParts(
       dc.y,
-      dc.m - 1,
+      dc.m,
       dc.d,
       dc.H || 0,
       dc.M || 0,
       Math.floor(dc.S || 0)
     );
-
-    if (isNaN(d.getTime())) return null;
-    return d;
+    return isNaN(d.getTime()) ? null : d;
   }
 
-  // Date object
-  if (raw instanceof Date) {
-    return isNaN(raw.getTime()) ? null : raw;
-  }
+  // Date object (аль хэдийн instant болсон тул шууд буцаана)
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
 
   // String
   if (typeof raw === "string") {
     const s = raw.trim();
     if (!s) return null;
 
-    // YYYY-MM-DD байвал шууд local date болгоно
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-      const [y, m, d] = s.split("-").map(Number);
-      return new Date(y, m - 1, d);
-    }
+    // YYYY-MM-DD
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return dateFromMNParts(+m[1], +m[2], +m[3], 0, 0, 0);
 
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return null;
-    return d;
+    // YYYY-MM-DD HH:mm(:ss)
+    m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (m) return dateFromMNParts(+m[1], +m[2], +m[3], +m[4], +m[5], +(m[6] || 0));
+
+    // YYYY/MM/DD HH:mm(:ss) гэх мэт
+    m = s.match(/^(\d{4})[\/.](\d{1,2})[\/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (m) return dateFromMNParts(+m[1], +m[2], +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+
+    // "new Date(s)"-г аль болох хэрэглэхгүй (UTC/local ялгаа гаргадаг)
+    return null;
   }
 
   return null;
 }
+
 
 function sha1(input: string) {
   return crypto.createHash("sha1").update(input).digest("hex");
