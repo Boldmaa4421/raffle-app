@@ -40,80 +40,43 @@ function normalizeCell(raw: any) {
 function parseDate(raw: any): Date | null {
   if (!raw) return null;
 
-  // Date object
-  if (raw instanceof Date) {
-    if (isNaN(raw.getTime())) return null;
-
-    if (
-      raw.getHours() === 0 &&
-      raw.getMinutes() === 0 &&
-      raw.getSeconds() === 0 &&
-      raw.getMilliseconds() === 0
-    ) {
-      const d = new Date(raw);
-      d.setHours(12, 0, 0, 0);
-      return d;
-    }
-
-    return raw;
-  }
-
-  // Excel serial number
+  // Excel serial
   if (typeof raw === "number") {
     const dc = XLSX.SSF.parse_date_code(raw);
     if (!dc) return null;
 
-    const y = dc.y;
-    if (y < 2000 || y > 2100) return null;
+    // ✅ UTC-г ашиглахгүй, огноог яг байгаагаар нь "хадгалах"
+    const d = new Date(
+      dc.y,
+      dc.m - 1,
+      dc.d,
+      dc.H || 0,
+      dc.M || 0,
+      Math.floor(dc.S || 0)
+    );
 
-    const hasTime = (dc.H || 0) + (dc.M || 0) + (dc.S || 0) > 0;
-    const hh = hasTime ? (dc.H || 0) : 12;
-    const mm = hasTime ? (dc.M || 0) : 0;
-    const ss = hasTime ? Math.floor(dc.S || 0) : 0;
-
-    const d = new Date(y, dc.m - 1, dc.d, hh, mm, ss, 0);
     if (isNaN(d.getTime())) return null;
     return d;
   }
 
-  // string
+  // Date object
+  if (raw instanceof Date) {
+    return isNaN(raw.getTime()) ? null : raw;
+  }
+
+  // String
   if (typeof raw === "string") {
     const s = raw.trim();
     if (!s) return null;
 
-    // "YYYY-MM-DD HH:mm:ss" эсвэл "YYYY/MM/DD HH:mm:ss" (local гэж үзнэ)
-    const mt = s.match(
-      /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/
-    );
-    if (mt) {
-      const y = Number(mt[1]);
-      const mo = Number(mt[2]);
-      const dd = Number(mt[3]);
-      const hh = Number(mt[4]);
-      const mm = Number(mt[5]);
-      const ss = Number(mt[6] ?? "0");
-
-      if (y < 2000 || y > 2100) return null;
-      const d = new Date(y, mo - 1, dd, hh, mm, ss, 0);
-      if (isNaN(d.getTime())) return null;
-      return d;
+    // YYYY-MM-DD байвал шууд local date болгоно
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split("-").map(Number);
+      return new Date(y, m - 1, d);
     }
 
     const d = new Date(s);
     if (isNaN(d.getTime())) return null;
-
-    const y = d.getFullYear();
-    if (y < 2000 || y > 2100) return null;
-
-    if (
-      d.getHours() === 0 &&
-      d.getMinutes() === 0 &&
-      d.getSeconds() === 0 &&
-      d.getMilliseconds() === 0
-    ) {
-      d.setHours(12, 0, 0, 0);
-    }
-
     return d;
   }
 
