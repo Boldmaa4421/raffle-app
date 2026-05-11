@@ -13,8 +13,33 @@ export default function NewRafflePage() {
   const [payAccount, setPayAccount] = useState<string>("");
   const [fbUrl, setFbUrl] = useState<string>("");
   const [imageUrl, setImageUrl] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
 
   const [saving, setSaving] = useState(false);
+
+async function uploadImage(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+
+  setUploading(true);
+
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: fd,
+  });
+
+  setUploading(false);
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data?.error || "Upload failed");
+    return;
+  }
+
+  setImageUrl(data.url);
+}
+
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,6 +84,7 @@ router.refresh();
 
   }
 
+
   return (
     <div style={{ padding: 24, maxWidth: 820, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -97,11 +123,24 @@ router.refresh();
         </Field>
 
         <Field label="Зураг (URL) *">
-          <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={input} placeholder="https://..." />
+         <input
+  type="file"
+  accept="image/*"
+  onChange={async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await uploadImage(file);
+  }}
+  style={input}
+/>
           {imageUrl.trim() ? (
             <div style={{ marginTop: 8 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageUrl.trim()} alt="preview" style={{ width: "100%", maxWidth: 480, borderRadius: 12, border: "1px solid #eee" }} />
+             <img
+  src={imageUrl.trim()}
+  alt="preview"
+  referrerPolicy="no-referrer" style={{ width: "100%", maxWidth: 480, borderRadius: 12, border: "1px solid #eee" }} />
             </div>
           ) : null}
         </Field>

@@ -27,7 +27,19 @@ export default function RafflesClient({ raffles }: { raffles: RaffleRow[] }) {
           <div key={raffle.id} style={{ border: "1px solid #eee", borderRadius: 14, overflow: "hidden", background: "white" }}>
             {raffle.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={raffle.imageUrl} alt={raffle.title ?? "raffle"} style={{ width: "100%", height: 140, objectFit: "cover" }} />
+            <img
+  src={raffle.imageUrl || "/placeholder.jpg"}
+  alt={raffle.title ?? "raffle"}
+  onError={(e) => {
+    (e.currentTarget as HTMLImageElement).src = "/placeholder.jpg";
+  }}
+  style={{
+    width: "100%",
+    height: 220,
+    objectFit: "cover",
+    background: "#f3f3f3",
+  }}
+/>
             ) : (
               <div style={{ width: "100%", height: 140, background: "#f4f4f4" }} />
             )}
