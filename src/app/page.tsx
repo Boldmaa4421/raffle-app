@@ -1,5 +1,4 @@
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+
 
 import HomeLookup from "../components/HomeLookup";
 import RaffleCheckButton from "@/components/RaffleCheckButton";
