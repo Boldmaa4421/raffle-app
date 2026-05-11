@@ -26,7 +26,8 @@ const normalizeImageUrl = (url?: string | null) => {
 };
 
 const isValidImage = (url?: string | null) => {
-  return !!url && url.startsWith("http");
+  if (!url) return false;
+  return /^https?:\/\//.test(url);
 };
 
 export default async function HomePage() {
@@ -160,5 +161,12 @@ export default async function HomePage() {
         </div>
       </div>
     </main>
+  );
+}
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold border border-white/10 bg-white/5 backdrop-blur">
+      {children}
+    </span>
   );
 }
