@@ -114,13 +114,10 @@ export default async function HomePage() {
                   <div className="relative aspect-[16/10] w-full bg-black/40">
                     {isValidImage(imgUrl) ? (
                       <img
-                        src={imgUrl!}
-                        alt={r.title ?? "raffle"}
-                        className="absolute inset-0 h-full w-full object-contain"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = "none";
-                        }}
-                      />
+  src={imgUrl!}
+  alt={r.title ?? "raffle"}
+  className="absolute inset-0 h-full w-full object-contain"
+/>
                     ) : (
                       <div className="absolute inset-0 grid place-items-center text-white/50 text-sm">
                         Зураг ачаалагдсангүй
