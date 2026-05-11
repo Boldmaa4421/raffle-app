@@ -1,28 +1,29 @@
-import { writeFile } from "fs/promises";
-import path from "path";
+import cloudinary from "@/lib/cloudinary";
 
 export async function POST(req: Request) {
-  const formData = await req.formData();
-  const file = formData.get("file") as File;
+  try {
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
 
-  if (!file) {
-    return Response.json({ error: "No file" }, { status: 400 });
+    if (!file) {
+      return Response.json({ error: "No file" }, { status: 400 });
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const result: any = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        { folder: "raffles" },
+        (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        }
+      ).end(buffer);
+    });
+
+    return Response.json({ url: result.secure_url });
+  } catch (e) {
+    return Response.json({ error: "Upload failed" }, { status: 500 });
   }
-
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  const filename = `${Date.now()}-${file.name}`;
-
-  const filepath = path.join(
-    process.cwd(),
-    "public/uploads",
-    filename
-  );
-
-  await writeFile(filepath, buffer);
-
-  return Response.json({
-    url: `/uploads/${filename}`,
-  });
 }

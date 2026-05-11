@@ -1,4 +1,8 @@
+"use client";
+
+import ImageUpload from "@/components/ImageUpload";
 import Link from "next/link";
+
 import { prisma } from "@/lib/prisma";
 import WinnerBox from "./WinnerBox";
 import DeleteRaffleButton from "../../../../components/DeleteRaffleButton";
@@ -121,7 +125,19 @@ export default async function AdminRaffleDetailPage({
           </Link>
         </div>
       </div>
+<ImageUpload
+  onUploaded={async (url) => {
+    await fetch("/api/admin/update-image", {
+      method: "POST",
+      body: JSON.stringify({
+        id: raffle.id,
+        imageUrl: url,
+      }),
+    });
 
+    alert("Зураг амжилттай солигдлоо!");
+  }}
+/>
       {/* ✅ WinnerBox-оо энд render хий */}
       <div style={{ marginTop: 14 }}>
         <WinnerBox raffleId={raffle.id} />
@@ -175,7 +191,7 @@ export default async function AdminRaffleDetailPage({
             </tr>
           </thead>
           <tbody>
-            {latestPurchases.map((p) => (
+            {latestPurchases.map((p: any) => (
               <tr key={p.id}>
                 <td style={td}>{new Date(p.createdAt).toLocaleString()}</td>
                 <td style={td}>
