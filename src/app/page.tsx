@@ -194,7 +194,7 @@ export default async function HomePage() {
   <div className="mt-3">
       <RaffleLookupButton
         raffleId={r.id}
-        raffleTitle={r.title}
+        raffleTitle={r.title ?? "Сугалаа"}
         
       />
     </div>
