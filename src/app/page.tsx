@@ -185,9 +185,6 @@ export default async function HomePage() {
   className="w-full h-full object-contain"
   loading="lazy"
   referrerPolicy="no-referrer"
-  onError={(e) => {
-    (e.currentTarget as HTMLImageElement).src = "/fallback.png";
-  }}
 />
 )  : (
     <div className="absolute inset-0 grid place-items-center text-white/50 text-sm">
