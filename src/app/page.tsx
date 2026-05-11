@@ -7,6 +7,24 @@ import RaffleLookupButton from "@/components/RaffleLookupButton";
 import CopyAccountButton from "@/components/CopyAccountButton";
 import { prisma } from "@/lib/prisma";
 
+
+const fixImageUrl = (url?: string | null) => {
+  if (!url) return null;
+
+  // ❌ Facebook бол block
+  if (url.includes("facebook.com")) return null;
+
+  // ❌ Imgur gallery link → direct image болгох
+  if (url.includes("imgur.com") && !url.match(/\.(jpg|png|jpeg|webp)$/)) {
+    const id = url.split("/").pop();
+    return `https://i.imgur.com/${id}.jpg`;
+  }
+
+  return url;
+};
+
+
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
@@ -139,6 +157,8 @@ export default async function HomePage() {
 
           <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {raffles.map((r) => {
+
+              const img = fixImageUrl(r.imageUrl);
               const total =
                 typeof r.totalTickets === "number" ? Math.max(1, r.totalTickets) : null;
               const sold = r._count.tickets ?? 0;
@@ -158,11 +178,12 @@ export default async function HomePage() {
                   {/* image */}
 {/* image */}
 <div className="relative aspect-[16/10] w-full bg-black/40">
-  {r.imageUrl ? (
+   {img ? (
     <img
-      src={r.imageUrl}
+      src={img}
       alt={r.title ?? "raffle"}
       className="absolute inset-0 h-full w-full object-contain"
+      loading="lazy"
     />
   ) : (
     <div className="absolute inset-0 grid place-items-center text-white/50 text-sm">
