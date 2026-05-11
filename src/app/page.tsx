@@ -7,6 +7,10 @@ import RaffleLookupButton from "@/components/RaffleLookupButton";
 import CopyAccountButton from "@/components/CopyAccountButton";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 function formatMNT(n: number) {
   return new Intl.NumberFormat("mn-MN").format(n) + "₮";
 }
