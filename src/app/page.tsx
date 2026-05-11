@@ -156,7 +156,7 @@ export default async function HomePage() {
           </div>
 
           <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {raffles.map((r) => {
+            {raffles.map((r:any) => {
 
               const img = fixImageUrl(r.imageUrl);
               const total =
@@ -178,15 +178,18 @@ export default async function HomePage() {
                   {/* image */}
 {/* image */}
 <div className="relative aspect-[16/10] w-full bg-black/40">
-   {img ? (
-    <img
-  src={img}
+   {r.imageUrl ? (
+ <img
+  src={r.imageUrl}
   alt={r.title ?? "raffle"}
-  className="absolute inset-0 h-full w-full object-contain"
+  className="w-full h-full object-contain"
   loading="lazy"
   referrerPolicy="no-referrer"
+  onError={(e) => {
+    (e.currentTarget as HTMLImageElement).src = "/fallback.png";
+  }}
 />
-  ) : (
+)  : (
     <div className="absolute inset-0 grid place-items-center text-white/50 text-sm">
       Зураг байхгүй
     </div>

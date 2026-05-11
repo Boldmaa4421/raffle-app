@@ -133,6 +133,9 @@ export default async function AdminRaffleDetailPage({
         id: raffle.id,
         imageUrl: url,
       }),
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
 
     alert("Зураг амжилттай солигдлоо!");

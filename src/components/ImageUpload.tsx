@@ -9,18 +9,18 @@ export default function ImageUpload({
 }) {
   const [loading, setLoading] = useState(false);
 
-  const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setLoading(true);
 
-    const formData = new FormData();
-    formData.append("file", file);
+    const form = new FormData();
+    form.append("file", file);
 
     const res = await fetch("/api/upload", {
       method: "POST",
-      body: formData,
+      body: form,
     });
 
     const data = await res.json();
@@ -30,12 +30,12 @@ export default function ImageUpload({
     if (data.url) {
       onUploaded(data.url);
     }
-  };
+  }
 
   return (
-    <div>
+    <div className="flex flex-col gap-2">
       <input type="file" onChange={upload} />
-      {loading && <p>Uploading...</p>}
+      {loading && <p className="text-sm text-white/70">Uploading...</p>}
     </div>
   );
 }

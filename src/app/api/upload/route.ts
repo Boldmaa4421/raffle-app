@@ -1,4 +1,5 @@
 import cloudinary from "@/lib/cloudinary";
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
@@ -6,24 +7,29 @@ export async function POST(req: Request) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return Response.json({ error: "No file" }, { status: 400 });
+      return NextResponse.json({ error: "No file" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    const result: any = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        { folder: "raffles" },
-        (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        }
-      ).end(buffer);
+    const uploadResult: any = await new Promise((resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream(
+          {
+            folder: "raffle-images",
+          },
+          (err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+          }
+        )
+        .end(buffer);
     });
 
-    return Response.json({ url: result.secure_url });
+    return NextResponse.json({
+      url: uploadResult.secure_url,
+    });
   } catch (e) {
-    return Response.json({ error: "Upload failed" }, { status: 500 });
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
