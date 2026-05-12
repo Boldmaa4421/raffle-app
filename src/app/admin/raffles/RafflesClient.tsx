@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import DeleteRaffleButton from "./DeleteRaffleButton";
 
 type RaffleRow = {
@@ -15,6 +16,28 @@ type RaffleRow = {
 
 export default function RafflesClient({ raffles }: { raffles: RaffleRow[] }) {
   const router = useRouter();
+  const [uploading, setUploading] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  async function handleImageUpload(raffleId: string, file: File) {
+    setUploading(raffleId);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!data.success) throw new Error("Upload failed");
+      await fetch("/api/admin/update-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: raffleId, imageUrl: data.url }),
+      });
+      router.refresh();
+    } catch {
+      alert("Зураг upload алдаа");
+    }
+    setUploading(null);
+  }
 
   return (
     <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
@@ -27,19 +50,14 @@ export default function RafflesClient({ raffles }: { raffles: RaffleRow[] }) {
           <div key={raffle.id} style={{ border: "1px solid #eee", borderRadius: 14, overflow: "hidden", background: "white" }}>
             {raffle.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-            <img
-  src={raffle.imageUrl || "/placeholder.jpg"}
-  alt={raffle.title ?? "raffle"}
-  onError={(e) => {
-    (e.currentTarget as HTMLImageElement).src = "/placeholder.jpg";
-  }}
-  style={{
-    width: "100%",
-    height: 220,
-    objectFit: "cover",
-    background: "#f3f3f3",
-  }}
-/>
+              <img
+                src={raffle.imageUrl}
+                alt={raffle.title ?? "raffle"}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = "/placeholder.jpg";
+                }}
+                style={{ width: "100%", height: 220, objectFit: "cover", background: "#f3f3f3" }}
+              />
             ) : (
               <div style={{ width: "100%", height: 140, background: "#f4f4f4" }} />
             )}
@@ -54,10 +72,7 @@ export default function RafflesClient({ raffles }: { raffles: RaffleRow[] }) {
               <div style={{ marginTop: 6, opacity: 0.85 }}>
                 Олгосон код: <b>{sold}</b>
                 {total ? (
-                  <>
-                    {" "}
-                    / {total} · Үлдсэн: <b>{remaining}</b>
-                  </>
+                  <> / {total} · Үлдсэн: <b>{remaining}</b></>
                 ) : null}
               </div>
 
@@ -77,6 +92,21 @@ export default function RafflesClient({ raffles }: { raffles: RaffleRow[] }) {
                 <Link href={`/admin/raffles/${raffle.id}/edit`} style={btnDark}>
                   Засах
                 </Link>
+
+                {/* Зураг солих */}
+                <label style={uploading === raffle.id ? { ...btnUpload, opacity: 0.6 } : btnUpload}>
+                  {uploading === raffle.id ? "..." : "Зураг солих"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    ref={(el) => { fileInputRefs.current[raffle.id] = el; }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleImageUpload(raffle.id, f);
+                    }}
+                  />
+                </label>
 
                 <DeleteRaffleButton raffleId={raffle.id} />
               </div>
@@ -122,4 +152,14 @@ const btnDark: React.CSSProperties = {
   color: "white",
   textDecoration: "none",
   fontWeight: 800,
+};
+
+const btnUpload: React.CSSProperties = {
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: "1px solid #2563eb",
+  background: "#2563eb",
+  color: "white",
+  fontWeight: 800,
+  cursor: "pointer",
 };

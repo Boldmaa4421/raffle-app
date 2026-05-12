@@ -511,7 +511,7 @@ if (!parsed.ok || !parsed.phoneE164) {
       const batch = groups.slice(b, b + BATCH_PURCHASE);
 
       const result = await prisma.$transaction(
-        async (tx) => {
+        async (tx:any) => {
           const counter = await tx.raffleCounter.upsert({
             where: { raffleId },
             create: { raffleId, nextSeq: 1 },

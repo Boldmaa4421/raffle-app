@@ -37,7 +37,6 @@ export default function EditRaffleForm({ raffle }: { raffle: any }) {
       <h2>Сугалаа засах</h2>
 
       <input name="title" value={form.title ?? ""} onChange={onChange} placeholder="Нэр" />
-      <input name="imageUrl" value={form.imageUrl ?? ""} onChange={onChange} placeholder="Зураг URL" />
       <input name="ticketPrice" type="number" value={form.ticketPrice} onChange={onChange} />
       <input name="totalTickets" type="number" value={form.totalTickets ?? ""} onChange={onChange} />
       <input name="payBankLabel" value={form.payBankLabel ?? ""} onChange={onChange} placeholder="Банк" />

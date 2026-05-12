@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     const phoneE164 = normalizePhoneE164(phoneRaw);
     if (!phoneE164) return NextResponse.json({ error: "Утасны дугаараа зөв оруулна уу" }, { status: 400 });
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx:any) => {
       const raffle = await tx.raffle.findUnique({ where: { id: raffleId } });
       if (!raffle) throw new Error("Сугалаа олдсонгүй");
 

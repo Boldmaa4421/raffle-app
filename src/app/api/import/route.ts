@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/lib/prisma";
 import { normalizePhoneE164 } from "@/lib/phone";
 import crypto from "crypto";
 import * as XLSX from "xlsx";
@@ -307,7 +308,7 @@ if (addAmount <= 0) {
 
     // ✅ Код дарааллыг нэг транзакц дотор баталгаатай өсгөнө
     const result = await prisma.$transaction(
-      async (tx) => {
+      async (tx: Prisma.TransactionClient) => {
         const counter = await tx.raffleCounter.upsert({
           where: { raffleId },
           create: { raffleId, nextSeq: 1 },

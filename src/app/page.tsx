@@ -3,23 +3,14 @@
 import HomeLookup from "../components/HomeLookup";
 import RaffleCheckButton from "@/components/RaffleCheckButton";
 
-import RaffleLookupButton from "@/components/RaffleLookupButton";
 import CopyAccountButton from "@/components/CopyAccountButton";
 import { prisma } from "@/lib/prisma";
 
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "";
 
-const fixImageUrl = (url?: string | null) => {
+const fixImageUrl = (url?: string | null): string | null => {
   if (!url) return null;
-
-  // ❌ Facebook бол block
-  if (url.includes("facebook.com")) return null;
-
-  // ❌ Imgur gallery link → direct image болгох
-  if (url.includes("imgur.com") && !url.match(/\.(jpg|png|jpeg|webp)$/)) {
-    const id = url.split("/").pop();
-    return `https://i.imgur.com/${id}.jpg`;
-  }
-
+  if (url.startsWith("/")) return `${BASE_URL}${url}`;
   return url;
 };
 
@@ -175,29 +166,20 @@ export default async function HomePage() {
                   className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl overflow-hidden shadow-xl"
                 >
                   {/* image */}
-                  {/* image */}
-{/* image */}
 <div className="relative aspect-[16/10] w-full bg-black/40">
-   {r.imageUrl ? (
- <img
-  src={r.imageUrl}
-  alt={r.title ?? "raffle"}
-  className="w-full h-full object-contain"
-  loading="lazy"
-  referrerPolicy="no-referrer"
-/>
-)  : (
+  {img ? (
+    <img
+      src={img}
+      alt={r.title ?? "raffle"}
+      className="w-full h-full object-contain"
+      loading="lazy"
+      referrerPolicy="no-referrer"
+    />
+  ) : (
     <div className="absolute inset-0 grid place-items-center text-white/50 text-sm">
       Зураг байхгүй
     </div>
   )}
-  <div className="mt-3">
-      <RaffleLookupButton
-        raffleId={r.id}
-        raffleTitle={r.title ?? "Сугалаа"}
-        
-      />
-    </div>
 </div>
 
 
