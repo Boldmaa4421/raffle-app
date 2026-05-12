@@ -51,7 +51,7 @@ async function uploadImage(file: File) {
     }
 
     if (!imageUrl.trim()) {
-      alert("Зураг (imageUrl) оруулна уу. (Одоохондоо URL байдлаар)");
+      alert("Зураг upload хийнэ үү.");
       return;
     }
 
@@ -122,30 +122,36 @@ router.refresh();
           <input value={fbUrl} onChange={(e) => setFbUrl(e.target.value)} style={input} placeholder="https://facebook.com/..." />
         </Field>
 
-        <Field label="Зураг (URL) *">
-         <input
-  type="file"
-  accept="image/*"
-  onChange={async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    await uploadImage(file);
-  }}
-  style={input}
-/>
-          {imageUrl.trim() ? (
+        <Field label="Зураг *">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              await uploadImage(file);
+            }}
+            style={input}
+          />
+          {uploading && (
+            <div style={{ marginTop: 6, color: "#555", fontWeight: 700 }}>
+              Cloudinary-д upload хийж байна...
+            </div>
+          )}
+          {!uploading && imageUrl.trim() && (
             <div style={{ marginTop: 8 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-             <img
-  src={imageUrl.trim()}
-  alt="preview"
-  referrerPolicy="no-referrer" style={{ width: "100%", maxWidth: 480, borderRadius: 12, border: "1px solid #eee" }} />
+              <img
+                src={imageUrl}
+                alt="preview"
+                referrerPolicy="no-referrer"
+                style={{ width: "100%", maxWidth: 480, borderRadius: 12, border: "1px solid #eee" }}
+              />
             </div>
-          ) : null}
+          )}
         </Field>
 
-        <button disabled={saving} style={btn}>
+        <button disabled={saving || uploading} style={btn}>
           {saving ? "Хадгалж байна..." : "Хадгалах"}
         </button>
       </form>
