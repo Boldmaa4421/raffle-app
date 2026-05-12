@@ -1,7 +1,7 @@
-"use client";
 
 import ImageUpload from "@/components/ImageUpload";
 import Link from "next/link";
+
 
 import { prisma } from "@/lib/prisma";
 import WinnerBox from "./WinnerBox";
@@ -125,22 +125,13 @@ export default async function AdminRaffleDetailPage({
           </Link>
         </div>
       </div>
-<ImageUpload
-  onUploaded={async (url) => {
-    await fetch("/api/admin/update-image", {
-      method: "POST",
-      body: JSON.stringify({
-        id: raffle.id,
-        imageUrl: url,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+      <div style={{ marginTop: 20 }}>
+  <div style={{ fontWeight: 700, marginBottom: 8 }}>
+    Сугалааны зураг солих
+  </div>
 
-    alert("Зураг амжилттай солигдлоо!");
-  }}
-/>
+  <ImageUpload raffleId={raffle.id} />
+</div>
       {/* ✅ WinnerBox-оо энд render хий */}
       <div style={{ marginTop: 14 }}>
         <WinnerBox raffleId={raffle.id} />

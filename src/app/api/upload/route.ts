@@ -1,35 +1,30 @@
-import cloudinary from "@/lib/cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 import { NextResponse } from "next/server";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
+    const body = await req.json();
 
-    if (!file) {
-      return NextResponse.json({ error: "No file" }, { status: 400 });
-    }
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-
-    const uploadResult: any = await new Promise((resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream(
-          {
-            folder: "raffle-images",
-          },
-          (err, result) => {
-            if (err) reject(err);
-            else resolve(result);
-          }
-        )
-        .end(buffer);
+    const uploaded = await cloudinary.uploader.upload(body.image, {
+      folder: "raffles",
     });
 
     return NextResponse.json({
-      url: uploadResult.secure_url,
+      success: true,
+      url: uploaded.secure_url,
     });
-  } catch (e) {
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  } catch (err) {
+    console.error(err);
+
+    return NextResponse.json(
+      { success: false },
+      { status: 500 }
+    );
   }
 }

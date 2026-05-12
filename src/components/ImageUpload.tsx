@@ -3,39 +3,74 @@
 import { useState } from "react";
 
 export default function ImageUpload({
-  onUploaded,
+  raffleId,
 }: {
-  onUploaded: (url: string) => void;
+  raffleId: string;
 }) {
   const [loading, setLoading] = useState(false);
 
-  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+  const handleFile = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
+
     if (!file) return;
 
     setLoading(true);
 
-    const form = new FormData();
-    form.append("file", file);
+    const reader = new FileReader();
 
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: form,
-    });
+    reader.readAsDataURL(file);
 
-    const data = await res.json();
+    reader.onloadend = async () => {
+      try {
+        // cloudinary upload
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: JSON.stringify({
+            image: reader.result,
+          }),
+        });
 
-    setLoading(false);
+        const uploadData = await uploadRes.json();
 
-    if (data.url) {
-      onUploaded(data.url);
-    }
-  }
+        // db update
+        await fetch("/api/admin/update-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: raffleId,
+            imageUrl: uploadData.url,
+          }),
+        });
+
+        alert("Зураг амжилттай шинэчлэгдлээ");
+
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        alert("Алдаа гарлаа");
+      }
+
+      setLoading(false);
+    };
+  };
 
   return (
-    <div className="flex flex-col gap-2">
-      <input type="file" onChange={upload} />
-      {loading && <p className="text-sm text-white/70">Uploading...</p>}
+    <div>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleFile}
+      />
+
+      {loading && (
+        <div style={{ marginTop: 8 }}>
+          Upload хийж байна...
+        </div>
+      )}
     </div>
   );
 }

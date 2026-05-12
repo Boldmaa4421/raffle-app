@@ -2,12 +2,18 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const { id, imageUrl } = await req.json();
+  const body = await req.json();
 
   await prisma.raffle.update({
-    where: { id },
-    data: { imageUrl },
+    where: {
+      id: body.id,
+    },
+    data: {
+      imageUrl: body.imageUrl,
+    },
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+  });
 }
