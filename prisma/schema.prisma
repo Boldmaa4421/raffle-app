@@ -30,7 +30,7 @@ model Raffle {
 model Winner {
   id        String   @id @default(cuid())
   raffleId  String   @unique
-  ticketId  String   @unique
+  ticketId  String?  @unique
   createdAt DateTime @default(now())
 
   // ✅ Public-д харагдах
@@ -44,8 +44,8 @@ model Winner {
   phone      String? // хуучин winnerPhone (public-д битгий харуулна)
   sourceText String? // хуучин sourceText
 
-  raffle Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  raffle Raffle  @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
 }
 
 //////////////////////////////////////

@@ -93,7 +93,7 @@ export default function WinnersClient({
 
   async function save(publish: boolean) {
     if (!raffleId) { setMsg("❌ Сугалаа сонгоно уу"); return; }
-    if (!code.trim()) { setMsg("❌ Ticket код оруулна уу"); return; }
+    if (publish && !code.trim()) { setMsg("❌ Нийтлэхийн тулд ticket код оруулна уу"); return; }
 
     setLoading(true);
     setMsg("");
