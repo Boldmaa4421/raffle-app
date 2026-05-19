@@ -61,16 +61,17 @@ export default async function WinnersPage() {
               className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl overflow-hidden shadow-xl flex flex-col"
             >
               {w.imageUrl ? (
-                <div className="aspect-[16/10] w-full bg-black/40 overflow-hidden">
+                <div className="w-full bg-black/40 overflow-hidden" style={{ height: 300 }}>
                   <img
                     src={w.imageUrl}
                     alt={w.displayName ?? "Азтан"}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-top"
+                    style={{ maxWidth: 400 }}
                     loading="lazy"
                   />
                 </div>
               ) : (
-                <div className="aspect-[16/10] w-full bg-white/5 grid place-items-center text-4xl">
+                <div className="w-full bg-white/5 grid place-items-center text-4xl" style={{ height: 300 }}>
                   🏆
                 </div>
               )}
