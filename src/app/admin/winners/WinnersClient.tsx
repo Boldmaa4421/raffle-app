@@ -101,7 +101,7 @@ export default function WinnersClient({
       const res = await fetch(`/api/admin/raffles/${raffleId}/winner`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim(), displayName, phone, bio, imageUrl, facebookLiveUrl, publish }),
+        body: JSON.stringify({ code: code.trim(), displayName, phone: phone.trim() || null, bio, imageUrl, facebookLiveUrl, publish }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Алдаа");
@@ -192,7 +192,7 @@ export default function WinnersClient({
             </div>
 
             <div>
-              <label style={lbl}>Утасны дугаар</label>
+              <label style={lbl}>Утасны дугаар <span style={{ opacity: 0.45 }}>(заавал биш)</span></label>
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
