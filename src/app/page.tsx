@@ -1,5 +1,6 @@
 
 
+import Link from "next/link";
 import HomeLookup from "../components/HomeLookup";
 import RaffleCheckButton from "@/components/RaffleCheckButton";
 
@@ -65,9 +66,17 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 backdrop-blur px-4 py-2 text-sm font-bold text-white/85">
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
-            Шууд шалгах — 24/7
+          <div className="flex items-center gap-3">
+            <Link
+              href="/winners"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 backdrop-blur px-4 py-2 text-sm font-bold text-white/85 hover:bg-white/10 transition"
+            >
+              🏆 Азтангууд
+            </Link>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 backdrop-blur px-4 py-2 text-sm font-bold text-white/85">
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
+              Шууд шалгах — 24/7
+            </div>
           </div>
         </div>
 

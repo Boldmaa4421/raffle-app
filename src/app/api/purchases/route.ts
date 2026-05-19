@@ -34,6 +34,9 @@ export async function POST(req: Request) {
       const raffle = await tx.raffle.findUnique({ where: { id: raffleId } });
       if (!raffle) throw new Error("Сугалаа олдсонгүй");
 
+      const existing = await tx.purchase.findFirst({ where: { raffleId, phoneE164 } });
+      if (existing) throw new Error("Энэ утасны дугаар энэ сугалаанд аль хэдийн бүртгэгдсэн байна");
+
       const ticketPrice = raffle.ticketPrice; // ✅ эндээс
       const amount = qty * ticketPrice;
 

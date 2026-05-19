@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 type Body = {
-  code: string;               // ялсан ticket code
+  code: string;
   displayName?: string | null;
+  phone?: string | null;
   bio?: string | null;
   imageUrl?: string | null;
   facebookLiveUrl?: string | null;
-  publish?: boolean;          // true бол publishedAt set
+  publish?: boolean;
 };
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -38,6 +39,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       update: {
         ticketId: ticket.id,
         displayName: body.displayName ?? null,
+        phone: body.phone ?? null,
         bio: body.bio ?? null,
         imageUrl: body.imageUrl ?? null,
         facebookLiveUrl: body.facebookLiveUrl ?? null,
@@ -47,6 +49,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         raffleId,
         ticketId: ticket.id,
         displayName: body.displayName ?? null,
+        phone: body.phone ?? null,
         bio: body.bio ?? null,
         imageUrl: body.imageUrl ?? null,
         facebookLiveUrl: body.facebookLiveUrl ?? null,
@@ -73,7 +76,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 }
 
-// ✅ Admin detail page дээр winner-г харуулахад хэрэгтэй (optional)
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  try {
+    const { id: raffleId } = await ctx.params;
+    await prisma.winner.delete({ where: { raffleId } });
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Устгахад алдаа" }, { status: 500 });
+  }
+}
+
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id: raffleId } = await ctx.params;
 
