@@ -80,53 +80,10 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* HERO */}
-        <div className="mt-10 grid lg:grid-cols-2 gap-10 items-start">
-          {/* left */}
-          <div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight">
-              Утасны дугаараар <br />
-              <span className="text-amber-300 drop-shadow-[0_10px_30px_rgba(251,191,36,0.22)]">
-                код шалгах
-              </span>
-            </h1>
-
-            <p className="mt-5 max-w-xl text-white/80 leading-relaxed">
-              Та өөрийн дугаараа оруулаад авсан сугалааны кодуудаа шууд шалгаарай. Ил тод,
-              найдвартай систем.
-            </p>
-
-            <div className="mt-7 flex gap-3 flex-wrap">
-              <Badge>Нээлттэй</Badge>
-              <Badge>Аюулгүй</Badge>
-              <Badge>Шууд</Badge>
-            </div>
-          </div>
-
-          {/* right (global lookup) */}
-          
-        </div>
-
         {/* INFO BOXES */}
-       {/* INFO BOXES */}
 <div className="mt-8 grid gap-4 lg:grid-cols-2 items-start">
-  <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-5">
-    <div className="text-lg font-extrabold text-amber-200">Сугалааны мэдээлэл</div>
-    <ul className="mt-3 space-y-2 text-white/80">
-      <li className="flex gap-2">
-        <span className="text-amber-300">✓</span> Таныг азын тэнгэр ивээх болтугай
-      </li>
-      <li className="flex gap-2">
-        <span className="text-amber-300">✓</span> Гүйлгээний утга зөвхөн утасны дугаар бичнэ
-      </li>
-      <li className="flex gap-2">
-        <span className="text-amber-300">✓</span> Сугалаанд оролцох код таны утасны дугаарт SMS-ээр очно
-      </li>
-    </ul>
-  </div>
-
   {/* Зураг: бүтнээрээ харагдана */}
-  <div className="rounded-2xl border border-white/10 overflow-hidden bg-white/5">
+  <div className="lg:col-start-2 rounded-2xl border border-white/10 overflow-hidden bg-white/5">
   <img
     src="/tolgoi.png"
     alt="Сугалаа буцаах мэдээлэл"
@@ -312,14 +269,5 @@ export default async function HomePage() {
         </div>
       </div>
     </main>
-  );
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold
-      border border-white/10 bg-white/5 backdrop-blur">
-      {children}
-    </span>
   );
 }
