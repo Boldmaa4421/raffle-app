@@ -80,23 +80,6 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* INFO BOXES */}
-<div className="mt-8 grid gap-4 lg:grid-cols-2 items-start">
-  {/* Зураг: бүтнээрээ харагдана */}
-  <div className="lg:col-start-2 rounded-2xl border border-white/10 overflow-hidden bg-white/5">
-  <img
-    src="/tolgoi.png"
-    alt="Сугалаа буцаах мэдээлэл"
-    className="
-      w-full
-      h-[220px] sm:h-[260px] md:h-[320px] lg:h-[360px]
-      object-contain
-      bg-transparent
-    "
-  />
-</div>
-
-</div>
 
 
         
