@@ -212,7 +212,7 @@ export default function WinnersClient({
             </div>
 
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={lbl}>Зураг (Cloudinary upload)</label>
+              <label style={lbl}>Зураг (компьютероос upload)</label>
               <input type="file" accept="image/*" onChange={handleImageUpload} style={{ marginBottom: 8 }} />
               {uploadLoading && (
                 <div style={{ fontSize: 12, opacity: 0.65 }}>Upload хийж байна...</div>

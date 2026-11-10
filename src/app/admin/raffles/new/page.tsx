@@ -135,7 +135,7 @@ router.refresh();
           />
           {uploading && (
             <div style={{ marginTop: 6, color: "#555", fontWeight: 700 }}>
-              Cloudinary-д upload хийж байна...
+              Зураг upload хийж байна...
             </div>
           )}
           {!uploading && imageUrl.trim() && (

@@ -104,3 +104,13 @@ model RaffleCounter {
   raffle   Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
   nextSeq  Int    @default(1)
 }
+
+//////////////////////////////////////
+// UploadedImage (зургийг DB-д хадгална)
+//////////////////////////////////////
+model UploadedImage {
+  id        String   @id @default(cuid())
+  data      Bytes
+  mimeType  String
+  createdAt DateTime @default(now())
+}

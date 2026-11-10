@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
+const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+
+// Компьютероос ирсэн зургийг DB-д хадгалаад /api/images/<id> хаяг буцаана
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -8,37 +12,22 @@ export async function POST(req: Request) {
     if (!file) {
       return NextResponse.json({ success: false, error: "No file" }, { status: 400 });
     }
-
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
-
-    if (!cloudName || !uploadPreset) {
-      return NextResponse.json(
-        { success: false, error: "Cloudinary config missing" },
-        { status: 500 }
-      );
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ success: false, error: "Зөвхөн зураг upload хийнэ" }, { status: 400 });
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ success: false, error: "Зураг 10MB-аас бага байх ёстой" }, { status: 400 });
     }
 
-    const cloudinaryForm = new FormData();
-    cloudinaryForm.append("file", file);
-    cloudinaryForm.append("upload_preset", uploadPreset);
-    cloudinaryForm.append("folder", "raffles");
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const img = await prisma.uploadedImage.create({
+      data: { data: bytes, mimeType: file.type },
+      select: { id: true },
+    });
 
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      { method: "POST", body: cloudinaryForm }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok || !data.secure_url) {
-      console.error("Cloudinary error:", data);
-      return NextResponse.json({ success: false, error: data.error?.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, url: data.secure_url });
+    return NextResponse.json({ success: true, url: `/api/images/${img.id}` });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ success: false }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Upload алдаа" }, { status: 500 });
   }
 }

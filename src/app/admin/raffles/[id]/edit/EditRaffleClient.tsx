@@ -116,7 +116,7 @@ export default function EditRaffleClient({ raffle }: { raffle: RaffleData }) {
           <input value={fbUrl} onChange={(e) => setFbUrl(e.target.value)} style={input} placeholder="https://facebook.com/..." />
         </Field>
 
-        <Field label="Зураг (Cloudinary)">
+        <Field label="Зураг (компьютероос)">
           <input
             type="file"
             accept="image/*"
@@ -128,7 +128,7 @@ export default function EditRaffleClient({ raffle }: { raffle: RaffleData }) {
           />
           {uploading && (
             <div style={{ marginTop: 6, color: "#555", fontWeight: 700 }}>
-              Cloudinary-д upload хийж байна...
+              Зураг upload хийж байна...
             </div>
           )}
           {!uploading && imageUrl && (
