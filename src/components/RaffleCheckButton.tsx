@@ -191,35 +191,14 @@ export default function RaffleCheckButton({
               {/* RESULTS */}
               {data?.ok && (
                 <div className="mt-5">
-                  {/* Нэгтгэл */}
-                  <div className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-zinc-900 p-4 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="text-xs uppercase tracking-wide text-emerald-200/80">
-                        Утасны дугаар
-                      </div>
-                      <div className="mt-0.5 text-lg font-extrabold text-white truncate">
-                        {data.phone}
-                      </div>
-                      <div className="mt-1 text-xs text-white/60">
-                        Худалдан авалт: <b className="text-white/90">{data.purchases}</b>
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-xs text-emerald-200/80">Таны авсан нийт сугалаа</div>
-                      <div className="text-3xl font-black text-emerald-300 leading-tight">
-                        {data.codes}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
+                  <div className="space-y-3">
                     {data.groups.map((g, idx) => {
                       const d = new Date(g.purchasedAt as any);
 
                       return (
                         <div
                           key={idx}
-                          className="rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-lg shadow-black/30"
+                          className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-zinc-900 p-4 shadow-lg shadow-black/30"
                         >
                           <div className="flex items-start justify-between gap-3 pb-3 border-b border-white/10">
                             <div>
