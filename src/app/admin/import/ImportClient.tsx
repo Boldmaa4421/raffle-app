@@ -25,6 +25,7 @@ type ImportResult = {
 
   overpaidCount?: number;
   skippedCount?: number;
+  duplicateSkipped?: number;
 
   skippedPreview?: SkippedPreviewRow[];
 };
@@ -201,7 +202,8 @@ export default function ImportClient() {
           `Purchases=${data.insertedPurchases ?? 0}\n` +
           `Tickets=${data.insertedTickets ?? 0}\n` +
           `Overpaid=${data.overpaidCount ?? 0}\n` +
-          `Skipped=${data.skippedCount ?? 0}`
+          `Skipped=${data.skippedCount ?? 0}\n` +
+          `Давхардсан (алгассан)=${data.duplicateSkipped ?? 0}`
       );
 
       router.refresh();
@@ -292,6 +294,9 @@ export default function ImportClient() {
             </div>
             <div>
               Skipped: <b>{result.skippedCount ?? 0}</b>
+            </div>
+            <div>
+              Давхардсан (алгассан): <b>{result.duplicateSkipped ?? 0}</b>
             </div>
           </div>
 

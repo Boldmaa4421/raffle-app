@@ -26,3 +26,8 @@ export function normalizePhoneE164(input: string): string | null {
 
   return null;
 }
+
+// Ямар ч урттай цифрийг import болон хайлтад ижил түлхүүр болгоно
+export function phoneKeyFromDigits(digits: string): string {
+  return normalizePhoneE164(digits) ?? `+${digits}`;
+}

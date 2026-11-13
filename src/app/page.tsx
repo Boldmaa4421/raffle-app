@@ -163,7 +163,7 @@ export default async function HomePage() {
                           <div>
                             Эрх үлдлээ:{" "}
                             <span className="text-white font-bold">
-                              {remaining} / {total}
+                              {remaining}
                             </span>
                           </div>
                           <div className="font-extrabold text-amber-300">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { normalizePhoneE164 } from "@/lib/phone";
+import { normalizePhoneE164, phoneKeyFromDigits } from "@/lib/phone";
 
 type Body = {
   phone: string;
@@ -22,8 +22,11 @@ export async function POST(req: Request) {
     }
 
     // MN 8-digit → E164
-    let phoneE164 =
-      phoneInput.startsWith("+") ? phoneInput : normalizePhoneE164(phoneInput) || "";
+    // Ямар ч урттай дугаар байж болно (import-той ижил түлхүүр)
+    const digits = phoneInput.replace(/\D/g, "");
+    let phoneE164 = phoneInput.startsWith("+")
+      ? phoneInput
+      : normalizePhoneE164(phoneInput) || (digits ? phoneKeyFromDigits(digits) : "");
 
     if (!phoneE164) {
       return NextResponse.json({ error: "Утасны дугаар буруу байна" }, { status: 400 });

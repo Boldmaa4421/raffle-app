@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendPurchaseSms } from "@/lib/sendPurchaseSms";
-import { normalizePhoneE164 } from "@/lib/phone";
+import { normalizePhoneE164, phoneKeyFromDigits } from "@/lib/phone";
 import crypto from "crypto";
 import * as XLSX from "xlsx";
 
@@ -87,6 +87,11 @@ export function parseDate(raw: any): Date | null {
   return null;
 }
 
+
+// Нэг гүйлгээг ялгах түлхүүр: утас + гүйлгээний цаг + төлсөн дүн
+function txKey(phoneE164: string, at: Date, paid: number) {
+  return `${phoneE164}|${at.toISOString()}|${paid}`;
+}
 
 function sha1(input: string) {
   return crypto.createHash("sha1").update(input).digest("hex");
@@ -250,13 +255,16 @@ function parsePhone(raw: any): {
     }
   }
 
-  // Хэрвээ огт кандидатгүй бол: жижиг тоотой текстүүдийг энд “утас биш” гэж буцаана
+  // Дээрх загварт таарсан утас байхгүй бол: мөрөн дэх ЭХНИЙ тоог (хэдэн ч оронтой,
+  // дундуур нь зай/зураас/цэг байж болно) утас гэж авна. Данс/банкны мөрийг алгасна.
   if (cands.length === 0) {
-    const dAll = digitsOnly(s);
-    if (dAll.length > 0 && dAll.length < 8) {
-      return { ok: false, phoneRaw: original, reason: "утас биш (<8 цифр)" };
+    if (looksLikeBankAccount(original)) {
+      return { ok: false, phoneRaw: original, reason: "данс/банк/тайлбар мөр" };
     }
-    return { ok: false, phoneRaw: original, reason: "утас олдсонгүй" };
+    const m = s.match(/\d(?:[\s\-().]*\d)*/);
+    const d = m ? digitsOnly(m[0]) : "";
+    if (!d) return { ok: false, phoneRaw: original, reason: "утас олдсонгүй" };
+    return { ok: true, phoneE164: phoneKeyFromDigits(d), phoneRaw: original };
   }
 
   // Нэг мөрөнд 2+ утас байвал ЭХНИЙХ
@@ -497,6 +505,42 @@ if (!parsed.ok || !parsed.phoneE164) {
       continue;
     }
 
+    // ---- ДАВХАРДАЛ ШАЛГАХ ----
+    // Өмнө нь оруулсан гүйлгээ (утас + цаг + дүн ижил) дахин орвол код/SMS үүсгэхгүй.
+    // DB-д N удаа байгаа бол файлын эхний N тохиолдлыг алгасна (нэг файлд жинхэнэ 2 ижил гүйлгээ байж болно).
+    const existing = await prisma.purchase.findMany({
+      where: { raffleId },
+      select: { phoneE164: true, createdAt: true, paidAmount: true, amount: true },
+    });
+    const existingCount = new Map<string, number>();
+    for (const p of existing) {
+      const k = txKey(p.phoneE164, p.createdAt, p.paidAmount ?? p.amount);
+      existingCount.set(k, (existingCount.get(k) ?? 0) + 1);
+    }
+
+    let duplicateSkipped = 0;
+    const freshGroups: Group[] = [];
+    for (const g of groups) {
+      const k = txKey(g.phoneE164, g.purchasedAt, g.paid);
+      const left = existingCount.get(k) ?? 0;
+      if (left > 0) {
+        existingCount.set(k, left - 1);
+        duplicateSkipped++;
+        skipped.push({
+          row: g.startRow,
+          reason: "давхардсан гүйлгээ (өмнө нь оруулсан)",
+          phoneRaw: g.phoneRaw,
+          paid: g.paid,
+          qty: g.qty,
+          ticketPrice,
+        });
+        continue;
+      }
+      freshGroups.push(g);
+    }
+    groups.length = 0;
+    groups.push(...freshGroups);
+
     // ---- INSERT ----
     const BATCH_PURCHASE = 80;
     const TICKET_CHUNK = 2000;
@@ -613,6 +657,7 @@ if (!parsed.ok || !parsed.phoneE164) {
       insertedPurchases,
       insertedTickets,
       skippedTickets,
+      duplicateSkipped,
       overpaidCount: groups.filter((g) => g.diff > 0).length,
       skippedCount: skipped.length,
       overpayPreview,
