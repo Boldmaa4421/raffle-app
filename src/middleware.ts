@@ -1,38 +1,52 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { DEVICE_COOKIE, SESSION_COOKIE, verifySession } from "@/lib/adminAuth";
 
-export async function middleware(req: NextRequest) {
-  const { pathname, search } = req.nextUrl;
+function unauthorized() {
+  return new NextResponse("Unauthorized", {
+    status: 401,
+    headers: { "WWW-Authenticate": 'Basic realm="Admin"' },
+  });
+}
 
-  // Нэвтрэх хуудас нээлттэй
-  if (pathname === "/admin/login") return NextResponse.next();
+function decodeBasic(auth: string) {
+  // auth = "Basic base64(user:pass)"
+  const b64 = auth.slice("Basic ".length).trim();
 
-  const ok = await verifySession(
-    req.cookies.get(SESSION_COOKIE)?.value,
-    req.cookies.get(DEVICE_COOKIE)?.value
-  );
-  if (ok) return NextResponse.next();
-
-  if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Нэвтрэх шаардлагатай" }, { status: 401 });
+  // Edge дээр Buffer байхгүй тул atob ашиглана
+  // atob ажиллахгүй орчин байвал fallback гэж try/catch хийнэ
+  try {
+    const decoded = atob(b64); // "user:pass"
+    const idx = decoded.indexOf(":");
+    if (idx < 0) return { u: "", p: "" };
+    return { u: decoded.slice(0, idx), p: decoded.slice(idx + 1) };
+  } catch {
+    return { u: "", p: "" };
   }
+}
 
-  const url = req.nextUrl.clone();
-  url.pathname = "/admin/login";
-  url.search = `?next=${encodeURIComponent(pathname + search)}`;
-  return NextResponse.redirect(url);
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  const isAdmin =
+    pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+
+  if (!isAdmin) return NextResponse.next();
+
+  const user = process.env.ADMIN_BASIC_USER || "";
+  const pass = process.env.ADMIN_BASIC_PASS || "";
+
+  // env хоосон байсан ч хаалттай байлгая
+  if (!user || !pass) return unauthorized();
+
+  const auth = req.headers.get("authorization");
+  if (!auth?.startsWith("Basic ")) return unauthorized();
+
+  const { u, p } = decodeBasic(auth);
+  if (u !== user || p !== pass) return unauthorized();
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    "/admin/:path*",
-    "/api/admin/:path*",
-    // Өгөгдөл өөрчилдөг, зөвхөн админд зориулсан API-ууд
-    "/api/upload",
-    "/api/import",
-    "/api/purchases",
-    "/api/raffles",
-    "/api/raffle/:path*",
-  ],
+  matcher: ["/admin/:path*", "/api/admin/:path*"],
 };
