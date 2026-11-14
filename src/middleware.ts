@@ -27,8 +27,13 @@ function decodeBasic(auth: string) {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Өгөгдөл өөрчилдөг, зөвхөн админд зориулсан API-ууд
+  const adminOnlyApis = ["/api/upload", "/api/import", "/api/purchases", "/api/raffles", "/api/raffle/"];
+
   const isAdmin =
-    pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/api/admin") ||
+    adminOnlyApis.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : p + "/"));
 
   if (!isAdmin) return NextResponse.next();
 
@@ -48,5 +53,13 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/api/admin/:path*",
+    "/api/upload/:path*",
+    "/api/import/:path*",
+    "/api/purchases/:path*",
+    "/api/raffles/:path*",
+    "/api/raffle/:path*",
+  ],
 };
